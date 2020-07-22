@@ -7,6 +7,32 @@ void Scene::OnStart() {
 	/*for (auto it : _container) {
 		it->OnStart();
 	}*/
+
+	// 纹理
+	for (auto pMat : _matContainer) {
+		// 通过renderBackend的接口进行转化
+		RenderBackend::Instance().AddTex(pMat);
+	}
+	// 材质转换
+	for (auto pMat : _matContainer) {
+		// 通过renderBackend的接口进行转化
+		RenderBackend::Instance().AddMat(pMat); // 通过map来索引tex
+	}
+	for (auto pObj : _objContainer) {
+		// 
+		RenderBackend::Instance().AddObj(pObj->Geo(), pObj->ModelMatrix, pObj->MatIndex);
+	}
+
+	// 创建渲染的context，称为pass
+	for (auto pcam : _camList) {
+		RenderBackend::Instance().CreatePass();
+	}
+	RenderBackend::Instance().CreatePass(_mainCam);
+
+	for (auto pae : _aeContainer) {
+		RenderBackend::Instance().AddAE();
+	}
+
 }
 
 void Scene::OnRender() {  

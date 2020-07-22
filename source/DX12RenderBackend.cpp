@@ -35,18 +35,15 @@ void DX12RenderBackend::DoRender() {
 
 	// 资源准备一次
 
-	for (auto cam : sceneCams) {
-		// if onlyAE{}
-		// 获取相机参数
-		// 渲染
+	for (auto pass : Passes) {
+		// 应用参数
+		// 设置矩阵 fov等参数
+		// 设置rt
 		for (auto obj : RenderQueue) {
 
 			drawxxx;
 		}
 	}
-
-	auto mainCam = SceneManager::Instance().CurrScene().MainCam();
-
 
 
 

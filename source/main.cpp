@@ -54,14 +54,20 @@ public:
 		auto sewingEffect = LoadEffectFromFile("sewingEffect.xml");
 		sewingEffect->SetTexture("LeftTexture", rt1);
 		sewingEffect->SetTexture("RightTexture", rt2);
-		mainCam = std::make_shared<Camera>(Falcon::CamTag::MainCam, sewingEffect, Falcon::RenderMode::OnlyAfterEffect);// 设置为afterEffect，这样相当于blit
+		//mainCam = std::make_shared<Camera>(Falcon::CamTag::MainCam, sewingEffect, Falcon::RenderMode::OnlyAfterEffect);// 设置为afterEffect，这样相当于blit
 
-		SetMainCam(mainCam);
+		//SetMainCam(mainCam);
 		AddCam(globalLightCam);
 		AddCam(localLightCam);
 
 
-		Scene::OnStart();
+		// 后处理单独拿出来
+
+		//AddAE(sewingEffect);
+		// 
+
+
+		Scene::OnStart();  // 这个调用保证所有资源被转化为底层表示
 	}
 
 	virtual void Update() {
