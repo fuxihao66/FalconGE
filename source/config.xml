@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RenderConfig>
+  <Resolution>
+    <x>1920</x>
+    <y>1080</y>
+  </Resolution>
+  <RenderMode>Defer</RenderMode>
+  <MSAA>Disabled</MSAA>
+  <RenderBackend>DX12</RenderBackend><!--DX12 DX11 OGL Vulkan-->
+</RenderConfig>
+
