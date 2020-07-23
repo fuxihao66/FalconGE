@@ -12,6 +12,7 @@ namespace Falcon {
 		std::shared_ptr<Mesh> _geo;
 		std::shared_ptr<Material> _mat;
 		std::shared_ptr<PhysicsProp> _phys;
+		Mat4x4<float> _modelMat;
 
 		/*std::vector<std::function<void()>> CollisionCallback;
 		std::vector<std::function<void()>> TriggerCallback;

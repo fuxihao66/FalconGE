@@ -9,23 +9,29 @@ void Scene::OnStart() {
 	}*/
 
 	// 纹理
-	for (auto pMat : _matContainer) {
-		// 通过renderBackend的接口进行转化
-		RenderBackend::Instance().AddTex(pMat);
+	for (auto key : _texMap) {
+		
+		RenderBackend::Instance().AddTex(_texMap[key], key);
+	}
+	for (auto key : _shaderList) {
+		RenderBackend::Instance().BulidPSO(_shaderList[key], key);
 	}
 	// 材质转换
-	for (auto pMat : _matContainer) {
-		// 通过renderBackend的接口进行转化
-		RenderBackend::Instance().AddMat(pMat); // 通过map来索引tex
+	for (auto key : _matContainer) {
+		// 绑定shader texture，参数
+		RenderBackend::Instance().AddMat(_matContainer[key]); 
+		
 	}
 	for (auto pObj : _objContainer) {
 		// 
-		RenderBackend::Instance().AddObj(pObj->Geo(), pObj->ModelMatrix, pObj->MatIndex);
+		RenderBackend::Instance().AddObj(pObj->Geo(), pObj->ModelMatrix, pObj->MatID);
 	}
 
 	// 创建渲染的context，称为pass
 	for (auto pcam : _camList) {
 		RenderBackend::Instance().CreatePass();
+		// add renderTexture
+		RenderBackend::Instance().AddRenderTexture();
 	}
 	RenderBackend::Instance().CreatePass(_mainCam);
 
@@ -63,4 +69,21 @@ void Scene::OnUpdate() {
 }
 void Scene::OnDestroy() {
 	// 把纹理 mesh全部析构
+}
+
+
+std::shared_ptr<MaterialBase> Scene::LoadEffectFromFile(const std::string& path, const std::string& key) {
+
+	// parse xml
+	auto shaderName = xxx;
+	if (!_shaderList[shaderName])
+		_shaderList[shaderName] = std::make_shared<Shader>(parsedShader);
+
+	_matContainer[key] = std::make_shared<MaterialBase>(paraList, shaderName);
+
+	return _matContainer[key];
+}
+
+std::shared_ptr<RenderTexture> Scene::CreateRenderTexture(int, int, , const std::string& id) {
+	//_texMap[id] = std::shared_ptr<RenderTexture>();
 }

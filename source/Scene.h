@@ -4,19 +4,27 @@
 #include "RenderBackend.h"
 #include "Camera.h"
 #include "Renderable.h"
+#include "MaterialBase.h"
 
 namespace Falcon {
 	class Scene
 	{
 	private:
 		std::vector<std::shared_ptr<Renderable>> _objContainer;
-		//std::vector<Mat4x4<float>> _modelMatrics;
 		std::vector<std::shared_ptr<AfterEffect>> _aeContainer;
+
+		std::vector<std::shared_ptr<RenderTarget>> _rtContainer;
+
+		std::map<std::string, std::shared_ptr<Shader>> _shaderList;
+		std::map<std::string, std::shared_ptr<Texture>> _texMap;
+		std::map<std::string, std::shared_ptr<MaterialBase>> _matContainer;
+
 		std::vector<std::shared_ptr<Camera>> _camList;
 		std::shared_ptr<Camera> _mainCam;
-		std::vector<std::shared_ptr<RenderTarget>> _rtContainer;
-		std::vector<std::shared_ptr<MaterialBace>> _matContainer;
-		//std::vector<std::shared_ptr<Shader>> _shaderList;
+
+		std::shared_ptr<MaterialBase> LoadEffectFromFile(const std::string&, const std::string& key); // key 用于构建renderable 
+		std::shared_ptr<RenderTexture> CreateRenderTexture(int, int, , const std::string& id);
+		//bool LoadMeshFromFile(const std::string&);
 	public:
 		//void Simulate();
 		virtual void OnStart();

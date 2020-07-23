@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MatInfo>
+  <Parameter>
+    <NormalMap>1920</NormalMap>
+    <LightPos>1080</LightPos>
+  </Parameter>
+  <Shader>
+    <ShaderName>
+      globalLightShader
+    </ShaderName>
+    <ShaderSource>
+      xxxx
+    </ShaderSource>
+  </Shader>
+  <!--DX12 DX11 OGL Vulkan-->
+</MatInfo>
