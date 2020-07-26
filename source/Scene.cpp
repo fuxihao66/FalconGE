@@ -1,41 +1,45 @@
 #include "Scene.h"
 using namespace Falcon;
 
-
+Scene::Scene() {
+	_mainCam = nullptr;
+}
 // 加载Scene中资源；
 void Scene::OnStart() {
-	/*for (auto it : _container) {
-		it->OnStart();
-	}*/
 
 	// 纹理
-	for (auto key : _texMap) {
+	for (auto it = _texMap.begin(); it != _texMap.end(); it++ ) {
 		
-		RenderBackend::Instance().AddTex(_texMap[key], key);
+		RenderBackend::Instance().AddTex(it->second, it->first);
 	}
-	for (auto key : _shaderList) {
-		RenderBackend::Instance().BulidPSO(_shaderList[key], key);
+	for (auto it = _shaderMap.begin(); it != _shaderMap.end(); it++) {
+		RenderBackend::Instance().BulidPSO(it->second, it->first);
 	}
 	// 材质转换
-	for (auto key : _matContainer) {
+	for (auto it = _matMap.begin(); it != _matMap.end(); it++) {
 		// 绑定shader texture，参数
-		RenderBackend::Instance().AddMat(_matContainer[key]); 
+		RenderBackend::Instance().AddMat(it->second, it->first);
 		
 	}
-	for (auto pObj : _objContainer) {
+	for (auto it = _objMap.begin(); it != _objMap.end(); it++ ) {
 		// 
-		RenderBackend::Instance().AddObj(pObj->Geo(), pObj->ModelMatrix, pObj->MatID);
+		RenderBackend::Instance().AddObj(it->second, it->first);
+	}
+
+	for (auto it = _rtMap.begin(); it != _rtMap.end(); it++) {
+		RenderBackend::Instance().AddRenderTexture(it->second, it->first);
 	}
 
 	// 创建渲染的context，称为pass
 	for (auto pcam : _camList) {
 		RenderBackend::Instance().CreatePass();
-		// add renderTexture
-		RenderBackend::Instance().AddRenderTexture();
 	}
-	RenderBackend::Instance().CreatePass(_mainCam);
+
+	if (_mainCam != nullptr)
+		RenderBackend::Instance().CreatePass(_mainCam);
 
 	for (auto pae : _aeContainer) {
+		// 材质  参数  renderTarget
 		RenderBackend::Instance().AddAE();
 	}
 
@@ -69,19 +73,42 @@ void Scene::OnUpdate() {
 }
 void Scene::OnDestroy() {
 	// 把纹理 mesh全部析构
+	_objMap.clear();
+	_aeContainer.clear();
+	_rtMap.clear();
+	_shaderMap.clear();
+	_texMap.clear();
+	_matMap.clear();
+	_camList.clear();
+	_mainCam = nullptr;
+
 }
 
 
 std::shared_ptr<MaterialBase> Scene::LoadEffectFromFile(const std::string& path, const std::string& key) {
 
+	tx::XMLDocument doc;
+	doc.LoadFile(path.c_str());
+
+	tx::XMLElement* root = doc.FirstChildElement("MatInfo");
+
+	tx::XMLElement* ParaElement = root->FirstChildElement("Parameter");
+	tx::XMLElement* ColorElement = root->FirstChildElement("Color");
+	tx::XMLElement* TextureElement = root->FirstChildElement("Texture");
+	tx::XMLElement* FloatElement = root->FirstChildElement("Float");
+	auto paraList;
+
+	tx::XMLElement* ShaderElement = root->FirstChildElement("Shader");
+
+
 	// parse xml
-	auto shaderName = xxx;
-	if (!_shaderList[shaderName])
-		_shaderList[shaderName] = std::make_shared<Shader>(parsedShader);
+	std::string shaderName = ShaderElement->FirstChildElement("ShaderName")->GetText();
+	if (!_shaderMap[shaderName])
+		_shaderMap[shaderName] = std::make_shared<Shader>(ShaderElement->FirstChildElement("ShaderSource")->GetText());
 
-	_matContainer[key] = std::make_shared<MaterialBase>(paraList, shaderName);
+	_matMap[key] = std::make_shared<MaterialBase>(paraList, shaderName);
 
-	return _matContainer[key];
+	return _matMap[key];
 }
 
 std::shared_ptr<RenderTexture> Scene::CreateRenderTexture(int, int, , const std::string& id) {

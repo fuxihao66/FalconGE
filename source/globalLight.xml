@@ -1,8 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
 <MatInfo>
   <Parameter>
-    <NormalMap>1920</NormalMap>
-    <LightPos>1080</LightPos>
+    <Color>
+      <LightPos>1080</LightPos>
+    </Color>
+    <Texture>
+      <NormalMap>1920</NormalMap>
+      <ColorMap>1920</ColorMap>
+    </Texture>
+    <Float></Float>  
   </Parameter>
   <Shader>
     <ShaderName>
@@ -12,5 +17,4 @@
       xxxx
     </ShaderSource>
   </Shader>
-  <!--DX12 DX11 OGL Vulkan-->
 </MatInfo>

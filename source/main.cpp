@@ -30,6 +30,7 @@
 #include "Scene.h"
 #include "Utility.h"
 #include "Config.h"
+#include "KeyMacro.h"
 
 
 
@@ -85,16 +86,39 @@ public:
 		Scene::OnStart();  // 这个调用保证所有资源被转化为底层表示
 	}
 
-	virtual void Update() {
+	virtual void OnUpdate() {
+		if (Falcon::InputManager::Instance().IsKeyDown(Falcon::Key::W)) {
+			for (auto pcam : _camList) {
+				pcam->Translate(0.0f, 0.0f, 0.1f);
+			}
+		}
+		if (Falcon::InputManager::Instance().IsKeyDown(Falcon::Key::S)) {
+			for (auto pcam : _camList) {
+				pcam->Translate(0.0f, 0.0f, -0.1f);
+			}
+		}
+		if (Falcon::InputManager::Instance().IsKeyDown(Falcon::Key::A)) {
+			for (auto pcam : _camList) {
+				pcam->Translate(-0.1f, 0.0f, 0.0f);
+			}
+		}
+		if (Falcon::InputManager::Instance().IsKeyDown(Falcon::Key::D)) {
+			for (auto pcam : _camList) {
+				pcam->Translate(0.1f, 0.0f, 0.0f);
+			}
+		}
+		
+
 		// TODO: 切换场景例子
 		/*if (Falcon::InputManager::Instance().IsKeyDown()) {
 			Falcon::SceneManager::Instance().SetActiveScene("test");
 		}*/
+		// TODO: 因为所有加载方式是同步的，因此如果这样直接切换，会直接阻塞
 	}
-private:
-	std::shared_ptr<Camera> globalLightCam;
-	std::shared_ptr<Camera> localLightCam;
-	std::shared_ptr<Camera> mainCam;
+	virtual void OnDestroy() {
+		// 析构所有元素
+		Scene::OnDestroy();
+	}
 
 	
 };
@@ -114,10 +138,6 @@ protected:
 
 		auto mainScene = std::make_shared<StartupScene>();
 
-
-		// 把所有场景添加到sceneManager
-		// 在每个scene里面 通过sceneManager的setActive来切换
-
 		// add scene to active scene
 		Falcon::SceneManager::Instance().AddScene(mainScene, "main");
 		Falcon::SceneManager::Instance().SetActiveScene("main");  // setActiveScene 会进行所有物体的start 通过加载资源
@@ -128,24 +148,17 @@ protected:
 
 	// TODO: 目前在scene和app里可以添加update
 	// TODO: 之后可以实现脚本系统来解决
-	virtual void Update() {
+	/*virtual void Update() {
 
-	}
+	}*/
 	// 
 	
 	//virtual void UpdateOverlay(); // left for UI object
 };
 
-
-int main() {
-
-	// 第一阶段 最基本的框架  渲染一个三角形
-
-	// 第二阶段 模型导入，纹理材质shader
-
-	// 第三阶段 全局光照模型，分屏，基本输入控制
-
-
+INT WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+	PSTR lpCmdLine, INT nCmdShow)
+{
 	Falcon::Config config = Falcon::Utility::LoadConfigFromFile("config.xml");
 
 	// 设置渲染相关信息  创建渲染后端; 必须要在创建之前Apply
@@ -153,8 +166,7 @@ int main() {
 
 	TestApp app;
 
-	app.Create();
+	app.Create(hInstance, hPrevInstance, lpCmdLine, nCmdShow);
 	app.Run();
-
 	return 0;
 }

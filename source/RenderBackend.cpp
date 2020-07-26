@@ -11,6 +11,13 @@ RenderBackend& RenderBackend::Instance() {
 			_selfPointer = new DX12RenderBackend();
 			break;
 		case ApiType::D3D11:
+			// 抛出异常
+			break;
+		case ApiType::OGL:
+			// 抛出异常
+			break;
+		case ApiType::Vulkan:
+			// 抛出异常
 			break;
 		case ApiType::Nan:
 			// 抛出异常

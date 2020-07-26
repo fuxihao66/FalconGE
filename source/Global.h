@@ -6,6 +6,7 @@
 #include "Scene.h"
 #include "Utility.h"
 #include "Config.h"
+#include "KeyMacro.h"
 // È«¾ÖÊµÀý
 
 namespace Falcon {
@@ -19,7 +20,9 @@ namespace Falcon {
 		float _cursorX;
 		float _cursorY;
 		InputManager() {
-
+			for (size_t i = 0; i < ; i++) {
+				_keyMapping[i] = false;
+			}
 		}
 
 	public:
@@ -30,7 +33,7 @@ namespace Falcon {
 			return *_self;
 		}
 
-		void SetMouseDown(UINT para) {
+		void SetMouseDown(long para) {
 			switch (para) {
 			case Mouse::Left:
 				_mouseLeftDown = true;
@@ -47,7 +50,7 @@ namespace Falcon {
 			_cursorY = y;
 		}
 
-		void SetMouseUp(UINT para) {
+		void SetMouseUp(long para) {
 			switch (para) {
 			case Mouse::Left:
 				_mouseLeftDown = false;
@@ -59,12 +62,12 @@ namespace Falcon {
 				_mouseMiddleDown = false;
 			}
 		}
-		void SetKeyDown() {
-
+		void SetKeyDown(long key) {
+			_keyMapping[key] = true;
 		}
 
-		void SetKeyUp() {
-
+		void SetKeyUp(long key) {
+			_keyMapping[key] = false;
 		}
 
 		bool IsKeyDown(long key) {
@@ -131,12 +134,33 @@ namespace Falcon {
 	private:
 		double _lastStart;
 		double _lastPause;
+		static std::shared_ptr<Timer> _selfPointer;
+		Timer() {
+			_selfPointer = nullptr;
+		}
 	public:
-		
-		static void Start() {
+		static Timer& Instance() {
+			if (_selfPointer == nullptr) {
+				_selfPointer = std::make_shared<Timer>();
+			}
+			return *_selfPointer;
+		}
+		void Start() {
 			//_lastStart = ;
 		}
+		void Pause() {
 
+		}
+
+		void Reset() {
+
+		}
+		void Resume() {
+
+		}
+		void Tick() {
+
+		}
 	};
 
 	// 
@@ -145,7 +169,7 @@ namespace Falcon {
 		bool		MSAA_Enabled;
 		ScreenMode	SM;
 		ApiType		API;
-
+		RenderType  RM;
 		bool HasApplied;
 		//std::unique_ptr<RenderBackend> renderer;
 	private:
@@ -173,6 +197,9 @@ namespace Falcon {
 		}
 		ApiType GetApi() {
 			return API;
+		}
+		RenderType GetRenderType() {
+			return RM;
 		}
 	};
 
