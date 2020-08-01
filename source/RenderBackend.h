@@ -63,7 +63,8 @@ namespace Falcon{
 
 
         // 具体的backend进行实现
-        virtual void DoRender() = 0;
+        virtual void DoRenderDeferred() = 0;
+        virtual void DoRenderForwardPlus() = 0;
         virtual void DoDispatch() = 0;
 
         //virtual void ToAPIRealtedResource(std::shared_ptr<Renderable> objPtr);

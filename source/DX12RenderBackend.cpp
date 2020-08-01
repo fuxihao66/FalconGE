@@ -182,21 +182,24 @@ void DX12RenderBackend::AddTex(std::shared_ptr<Texture> pTex, const std::string&
 	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 		mCommandList.Get(), pTex->Filename.c_str(),
 		pTex->Resource, pTex->UploadHeap));
-	_mTextures[key] = std::move(pTex);
+	//_mTextures[key] = std::move(pTex);
+	for (auto item : mats) {
+		把使用了这个texture的mat的偏移量设置上去
+	}
 }
 
 
-void DX12RenderBackend::AddMat(std::shared_ptr<MaterialBase> pMat, const std::string& key) {
-	auto woodCrate = std::make_unique<Material>();
-	woodCrate->Name = "woodCrate";
-	woodCrate->MatCBIndex = 0;
-	woodCrate->DiffuseSrvHeapIndex = 0;
-	woodCrate->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	woodCrate->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	woodCrate->Roughness = 0.2f;
-
-	mMaterials["woodCrate"] = std::move(woodCrate);
-}
+//void DX12RenderBackend::AddMat(std::shared_ptr<MaterialBase> pMat, const std::string& key) {
+//	auto woodCrate = std::make_unique<Material>();
+//	woodCrate->Name = "woodCrate";
+//	woodCrate->MatCBIndex = 0;
+//	woodCrate->DiffuseSrvHeapIndex = 0;
+//	woodCrate->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+//	woodCrate->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
+//	woodCrate->Roughness = 0.2f;
+//
+//	mMaterials["woodCrate"] = std::move(woodCrate);
+//}
 void DX12RenderBackend::AddObj(std::shared_ptr<Renderable> ptr, const std::string& id) {
 	// TODO: 处理几何  构建vertex buffer
 	GeometryGenerator geoGen;
@@ -266,20 +269,60 @@ void DX12RenderBackend::AddObj(std::shared_ptr<Renderable> ptr, const std::strin
 		mOpaqueRitems.push_back(e.get());
 }
 
-void DX12RenderBackend::AddRenderTexture() {
+void DX12RenderBackend::AddRenderTexture(std::shared_ptr<RenderTexture> ptr, const std::string& id) {
+	// 创建纹理
+	// 创建两个view
 
+	for (auto m : mats) {
+		如果哪个mat使用了这个texture，设置偏移
+	}
+	// cam的偏移直接用在heap里面的index
 }
-void DX12RenderBackend::CreatePass() {
+//void DX12RenderBackend::CreatePass() {
+//
+//}
+//void DX12RenderBackend::AddAE() {
+//
+//}
 
-}
-void DX12RenderBackend::AddAE() {
+void DX12RenderBackend::BulidMat(const std::map<std::string, std::shared_ptr<MaterialBase>>& _effectMap) {
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+	CD3DX12_DESCRIPTOR_RANGE constTable;
+	constTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
 
+	
+	int numTex = 0; int numConst = 0;
+	// 构建rootSignature  获取所有的变量
+	for (auto it = _effectMap.begin(); it != _effectMap.end(); it++) {
+		// 每种类型的参数数数量，创建material，添加对应类型参数的offset（descriptor）中的
+	}
+
+	mTexture["key"] = index;
+	mConst["key"] = index;
+	slotRootParameter[0].InitAsDescriptorTable(numTex, &texTable);
+	slotRootParameter[1].InitAsDescriptorTable(numConst, &constTable);
+
+
+	// TODO: 每种类型的register从0开始递增
+	// 存储按照顺序，绑定的时候只要提供第一个的地址就可以，rs会根据descriptor的数量自动绑定
+
+	// 构建材质
 }
 
 void DX12RenderBackend::BulidPSO(std::shared_ptr<Shader> shaderPtr, const std::string& psokey) {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC newPsoDesc;
 
-	
+	// shader parse 添加register
+	//获取 变量；根据index来确定register
+	for (auto texId : texArray) {
+		auto regist = mTexture[texId];
+	}
+
+	// 编译
+
+
 	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "PS", "ps_5_1");
 
@@ -361,7 +404,13 @@ void DX12RenderBackend::InitializeResources() {
 	return true;
 }
 
-void DX12RenderBackend::RenderObject() {
+
+void DX12RenderBackend::BuildRootSignature() {
+	// 根据材质的参数 构建一个很大的root signature
+}
+
+
+void DX12RenderBackend::RenderObjects() {
 	if (GameContext::Instance().GetRenderType() == RenderType::Deferred) {
 
 	}
@@ -370,24 +419,38 @@ void DX12RenderBackend::RenderObject() {
 	}
 }
 
-void DX12RenderBackend::DoRender() {
 
-	// 资源准备一次
+void DX12RenderBackend::Flip() {
 
-	for (auto pass : _passes) {
-		// 应用参数
-		// 设置矩阵 fov等参数
-		// 设置rt
-		pass.Bind();    // 设置必要参数，renderTarget
-		RenderObject();
-		pass.UnBind();
-	}
+	// 切换缓冲区
+}
 
-	for (auto ae : _aes) {
-		ae.Bind();
-		RunAfterEffect();
-		ae.UnBind();
-	}
+// 后处理渲染
+void DX12RenderBackend::DoAE(std::shared_ptr<AfterEffect> pAE) {
+
+	// ae对应的mat和参数 renderTarget
+	auto renderTarget = ;
+	if (pAE->RenderTarget.compare("main") == 0) // 引擎的renderTarget
+		renderTarget = ;
+	else
+		renderTarget = _rt[pAE->RenderTarget];
+
+
+	// 渲染quad
+}
+
+// TODO: 还需要考虑透明物体
+void DX12RenderBackend::DoRender(std::shared_ptr<Camera> pCam) {
+
+	// 设置全局的矩阵 等参数信息
+	// 绑定renderTarget
+	auto renderTarget = ;
+	if (pCam->RenderTarget.compare("main") == 0) // 引擎的renderTarget
+		renderTarget = ;
+	else
+		renderTarget = _rt[pCam->RenderTarget];
+
+
 
 	auto cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
@@ -421,7 +484,12 @@ void DX12RenderBackend::DoRender() {
 	auto passCB = mCurrFrameResource->PassCB->Resource();
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
-	DrawRenderItems(mCommandList.Get(), mOpaqueRitems);
+	//DrawRenderItems(mCommandList.Get(), mOpaqueRitems);
+
+	// 使用前面设置的信息渲染
+	RenderObjects();
+
+	
 
 	// Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),

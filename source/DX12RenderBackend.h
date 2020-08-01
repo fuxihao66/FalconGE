@@ -8,32 +8,52 @@
 
 namespace Falcon {
 
+	class Material {
+		//std::unordered_map<std::string, int> _slots;
 
+		std::unordered_map<std::string, int> _offset;
+	public:
+		//TODO: slot直接 const 0；tex 1；sampler 2；uav 3
+		// 用于渲染阶段setGraphicsRootDescriptorTable
+		int GetConSlot() {
+			return 0;
+		}
+		int GetTexSlot() {
+			return 1;
+		}
+		/*void AddRootSigSlot(const std::string& key, int slot) {
+			_slots[key] = slot;
+		}*/
+		// 用于获取变量的地址偏移量
+		void AddParaOffset(const std::string& key, int offset) {
+			//_slots[key] = slot;
+		}
+	};
 
 	// 具体的渲染引擎
 	class DX12RenderBackend : public RenderBackend
 	{
 	private:
-		/*std::map<std::string, RenderItem> _renderObjMap;
-		std::map<std::string, PipeLineStateObject> _PSOMap;
-		std::map<std::string, MaterialBase> _matMap;
-		std::map<std::string, FrameBufferObject> _fbMap;
-		std::vector<Pass> _passes;*/
-
 		std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> _mGeometries;
 		std::unordered_map<std::string, ComPtr<ID3DBlob>> _mShaders;
 		std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> _mPSOs;
 		ComPtr<ID3D12RootSignature> _mRootSignature = nullptr;
+		std::unordered_map<std::string, Material> _mMats;
 
-		ComPtr<ID3D12DescriptorHeap> _mCbvHeap = nullptr;
+		/*底层数据结构*/
+		// 矩阵 向量  浮点数
+		ComPtr<ID3D12DescriptorHeap> _mCBVHeap = nullptr;
+		// renderTarget
+		ComPtr<ID3D12DescriptorHeap> _mainRTVHeap; // 主渲染，前后缓冲
+		ComPtr<ID3D12DescriptorHeap> _renderTextureRTVHeap; // render Texture buffer，根据offset来索引
+		// 深度  模板
+		ComPtr<ID3D12DescriptorHeap> _mDSVHeap;
+		// shader
+		ComPtr<ID3D12DescriptorHeap> _mSRVDescriptorHeap = nullptr;
+		// 支持随机读写  可以用于computer shader
+		ComPtr<ID3D12DescriptorHeap> _mUAVDescriptorHeap = nullptr;
 
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> _mainRTVHeap; // 主渲染
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> _renderTextureRTVHeap; // render Texture
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> _mDsvHeap;
-		ComPtr<ID3D12DescriptorHeap> _mSrvDescriptorHeap = nullptr;
-
-		std::vector<Pass> _passes;
-		std::vector<AfterEffect> _aes;
+		
 		// DX object
 		_dxgiFactory;
 		_d3dDevice;

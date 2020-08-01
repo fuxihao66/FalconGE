@@ -291,5 +291,5 @@ int AppFramework::Run() {  // ¿ªÊ¼Ñ­»·
 }
 
 void AppFramework::OnRender() {
-	RenderBackend::Instance().Render();
+	//RenderBackend::Instance().Render();
 }

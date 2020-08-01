@@ -45,7 +45,7 @@ public:
 
 		auto globalLightRenderEffect = LoadEffectFromFile("globalLight.xml", "globalLight");
 
-		auto ball = LoadMeshFromFile("");
+		auto ball = AddMeshFromFile("");
 		// 使用geo指针和mat的key来构建
 		auto renderable1 = std::make_shared<Falcon::Renderable>(ball, "globalLight", Falcon::Utility::IdentityMat());
 
@@ -115,6 +115,8 @@ public:
 		}*/
 		// TODO: 因为所有加载方式是同步的，因此如果这样直接切换，会直接阻塞
 	}
+	/*virtual void OnRender() {
+	}*/
 	virtual void OnDestroy() {
 		// 析构所有元素
 		Scene::OnDestroy();

@@ -7,50 +7,60 @@ Scene::Scene() {
 // 加载Scene中资源；
 void Scene::OnStart() {
 
+	/*--------------------------资源转换-------------------------------*/
+	//for (auto it = _matMap.begin(); it != _matMap.end(); it++) {
+	//	// 绑定shader texture，参数
+	//	RenderBackend::Instance().AddMat(it->second, it->first);
+
+	//}
+	RenderBackend::Instance().BuildMat(_matMap);
+	for (auto it = _shaderMap.begin(); it != _shaderMap.end(); it++) {
+		RenderBackend::Instance().BulidPSO(it->second, it->first);
+	}
 	// 纹理
 	for (auto it = _texMap.begin(); it != _texMap.end(); it++ ) {
 		
 		RenderBackend::Instance().AddTex(it->second, it->first);
 	}
-	for (auto it = _shaderMap.begin(); it != _shaderMap.end(); it++) {
-		RenderBackend::Instance().BulidPSO(it->second, it->first);
+
+	for (auto it = _rtMap.begin(); it != _rtMap.end(); it++) {
+		RenderBackend::Instance().AddRenderTexture(it->second, it->first);
 	}
-	// 材质转换
-	for (auto it = _matMap.begin(); it != _matMap.end(); it++) {
-		// 绑定shader texture，参数
-		RenderBackend::Instance().AddMat(it->second, it->first);
-		
-	}
+	
 	for (auto it = _objMap.begin(); it != _objMap.end(); it++ ) {
 		// 
 		RenderBackend::Instance().AddObj(it->second, it->first);
 	}
 
-	for (auto it = _rtMap.begin(); it != _rtMap.end(); it++) {
-		RenderBackend::Instance().AddRenderTexture(it->second, it->first);
-	}
+	
 
 	// 创建渲染的context，称为pass
-	for (auto pcam : _camList) {
+	/*for (auto pcam : _camList) {
 		RenderBackend::Instance().CreatePass();
-	}
+	}*/
 
-	if (_mainCam != nullptr)
-		RenderBackend::Instance().CreatePass(_mainCam);
+	//if (_mainCam != nullptr)
+	//	RenderBackend::Instance().CreatePass(_mainCam);
 
-	for (auto pae : _aeContainer) {
-		// 材质  参数  renderTarget
-		RenderBackend::Instance().AddAE();
-	}
+	//for (auto pae : _aeContainer) {
+	//	// 材质  参数  renderTarget
+	//	RenderBackend::Instance().AddAE();
+	//}
 
 }
 
 void Scene::OnRender() {  
-	/*for (auto it : _container) {
-		it->OnRender();
-	}*/
-
-	// TODO: 这里不需要做任何事情，渲染直接用renderBackend来处理
+	
+	for (auto pcam : _camList)
+		RenderBackend::Instance().DoRender(pcam);
+	if (_mainCam != nullptr)
+		RenderBackend::Instance().DoRender(_mainCam);
+	for (auto pae : _aeContainer) {
+		RenderBackend::Instance().DoAE(pae);
+	}
+	
+	// 切换前后缓冲
+	RenderBackend::Instance().Flip();
 }
 
 void Scene::AddRenderable(std::shared_ptr<Renderable> obj) {

@@ -30,7 +30,12 @@ RenderBackend& RenderBackend::Instance() {
 }
 
 void RenderBackend::Render() {
-	DoRender();
+	switch (GameContext::Instance().GetRenderType()) {
+	case RenderType::Deferred:
+		DoRenderDeferred();
+	case RenderType::ForwardPlus:
+		DoRenderForwardPlus();
+	}
 }
 void RenderBackend::Dispatch() {
 	DoDispatch();
