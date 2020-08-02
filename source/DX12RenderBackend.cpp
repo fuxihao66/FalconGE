@@ -178,15 +178,7 @@ void DX12RenderBackend::FlushCommandQueue()
 	}
 }
 
-void DX12RenderBackend::AddTex(std::shared_ptr<Texture> pTex, const std::string& key) {
-	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
-		mCommandList.Get(), pTex->Filename.c_str(),
-		pTex->Resource, pTex->UploadHeap));
-	//_mTextures[key] = std::move(pTex);
-	for (auto item : mats) {
-		把使用了这个texture的mat的偏移量设置上去
-	}
-}
+
 
 
 //void DX12RenderBackend::AddMat(std::shared_ptr<MaterialBase> pMat, const std::string& key) {
@@ -200,8 +192,182 @@ void DX12RenderBackend::AddTex(std::shared_ptr<Texture> pTex, const std::string&
 //
 //	mMaterials["woodCrate"] = std::move(woodCrate);
 //}
-void DX12RenderBackend::AddObj(std::shared_ptr<Renderable> ptr, const std::string& id) {
-	// TODO: 处理几何  构建vertex buffer
+
+
+
+//void DX12RenderBackend::CreatePass() {
+//
+//}
+//void DX12RenderBackend::AddAE() {
+//
+//}
+
+
+
+
+
+
+// --------------------------资源转换逻辑------------------------------
+// 1. 加载纹理 renterTexture  创建key到偏移量的map
+// 2. 创建纹理和constant的rootSignature（根据数量）；创建材质信息（同时把常量添加到cbvheap）  TODO: 几个变换矩阵可能要特殊处理
+// 3. 根据纹理中保存的变量offset，parse shader，添加register；编译shader 创建pso
+// 4. 处理几何信息
+// 5. 创建renderItem，包含了几何的指针和mat的指针
+
+
+// 加载纹理，添加到descriptorheap中
+void DX12RenderBackend::CreateTextures(std::shared_ptr<Texture> pTex, const std::string& key) {
+	
+	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
+		mCommandList.Get(), pTex->Filename.c_str(),
+		pTex->Resource, pTex->UploadHeap));
+	//_mTextures[key] = std::move(pTex);
+	// for (auto item : mats) {
+	// 	把使用了这个texture的mat的偏移量设置上去
+	// }
+
+	mTextures[] = index;
+
+}
+void DX12RenderBackend::CreateRenderTextures(std::shared_ptr<RenderTexture> ptr) {
+	// 创建纹理
+	// 创建两个view
+
+
+	// 作为srv的index
+	mTextures[] = index;
+
+	// 作为rt的偏移cam中已经保存了
+}
+
+void DX12RenderBackend::BulidMat(const std::map<std::string, std::shared_ptr<MaterialBase>>& _effectMap) {
+
+	// -----------------------------构建rootSignature  获取所有的变量(每种类型一个descriptorTable)-----------------------------------------
+	// -----------------------------创建material，添加对应类型参数的offset（descriptorHeap中的）--------------------------------
+	
+	std::unordered_map<std::string, std::shared_ptr<Material>> _mat;
+	std::unordered_map<std::string, int> mTexture;
+	std::unordered_map<std::string, int> mConst;
+
+	// int numTex = 0; int numConst = 0;
+
+	// TODO: mat里面保存的常量；和cam objcam的常量；创建mat的同时添加到descriptorHeap里面
+
+	for (auto it = _effectMap.begin(); it != _effectMap.end(); it++) {
+		auto matKey = it->first;
+
+		auto _effect = it->second;
+
+		_mat[matKey] = std::make_shared<Material>(_effect->ShaderID); // 保持变量的offset；设置pso
+
+
+		auto texPara = _effect->TextureParameter();// map
+		auto conPara = _effect->ConstantParameter();
+		for (auto tit = texPara.begin(); tit != texPara.end(); tit++){
+			auto key = tit->first;
+			// if(mTexture.count(key)>0){
+			// 	mTexture[key] = numTex;
+			// 	numTex++;
+			// }
+			_mat[matKey]->AddTexParaOffset(key, mTexture[key]);
+		}
+		for (auto cit = conPara.begin(); cit != conPara.end(); cit++){
+			auto key = cit->first;
+			if(mConst.count(key)>0){
+				mConst[key] = numConst;
+				numConst++;
+			}
+			_mat[matKey]->AddConParaOffset(key, mConst[key]);
+			
+		}
+	}
+	// 得到了变量的数量和所在heap中的index
+
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, numTex, 0);
+	CD3DX12_DESCRIPTOR_RANGE constTable;
+	constTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, numConst, 0);
+	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
+	// 每种类型的register从0开始递增
+	// 存储按照顺序，绑定的时候只要提供第一个的地址就可以，rs会根据descriptor的数量自动绑定
+	slotRootParameter[0].InitAsDescriptorTable(1, &texTable);
+	slotRootParameter[1].InitAsDescriptorTable(1, &constTable);
+
+}
+
+void DX12RenderBackend::BulidPSO(std::shared_ptr<Shader> shaderPtr, const std::string& v) {
+	// -------------------------shader parse 添加register ------------------------
+	auto texPara = shaderPtr->TextureParameter();// map
+	auto conPara = shaderPtr->ConstantParameter();
+
+	for (auto texKey : texPara){
+		texRegister[texKey] = mTexture[texKey];
+	}
+	for (auto texKey : texPara){
+		texRegister[texKey] = mTexture[texKey];
+	}
+	// TODO: parse 字符串 找到对应的变量 添加register
+	
+	// mShaders = std::unordered_map<std::string, shaderPair>();
+	// struct ShaderPair{
+	// 	vertexShader;
+	// 	pixelShader;
+	// 	geoShader;
+	// 	tessShader;
+	// };
+
+	// --------------------------PSO构建-------------------------------------------
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC newPsoDesc;
+	
+	mShaders[psokey].VertexShader 	= d3dUtil::CompileShader(shaderPtr->Path(), nullptr, "VS", "vs_5_1");
+	mShaders[psokey].PixelShader 	= d3dUtil::CompileShader(shaderPtr->Path(), nullptr, "PS", "ps_5_1");
+
+	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
+
+	ZeroMemory(&newPsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	newPsoDesc.InputLayout = { InputLayout.data(), (UINT)InputLayout.size() };
+	newPsoDesc.pRootSignature = _mRootSignature.Get();
+	newPsoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mShaders[psokey].VertexShader->GetBufferPointer()),
+		mShaders[psokey].VertexShader->GetBufferSize()
+	};
+	newPsoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mShaders[psokey].PixelShader->GetBufferPointer()),
+		mShaders[psokey].PixelShader->GetBufferSize()
+	};
+
+	newPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	newPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	newPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	newPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	newPsoDesc.SampleMask = UINT_MAX;
+	newPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	newPsoDesc.NumRenderTargets = 1;
+	newPsoDesc.RTVFormats[0] = mBackBufferFormat;
+	newPsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
+	newPsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
+	newPsoDesc.DSVFormat = mDepthStencilFormat;
+	// TODO: 用描述来创建对象
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&newPsoDesc, IID_PPV_ARGS(&_mPSOs[psokey])));
+
+}
+
+
+
+
+
+
+// TODO: 几何和renderable分开   
+void DX12RenderBackend::OperateGeometry(){
+	// ----------------------------------处理几何  构建vertex buffer---------------------------------------------------------
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 3);
 
@@ -248,11 +414,11 @@ void DX12RenderBackend::AddObj(std::shared_ptr<Renderable> ptr, const std::strin
 	geo->DrawArgs["box"] = boxSubmesh;
 
 	mGeometries[geo->Name] = std::move(geo);
+}
 
 
-
-
-	//TODO: Render objcet  渲染的时候遍历这个来渲染
+void DX12RenderBackend::CreateRenderable(std::shared_ptr<Renderable> ptr, const std::string& id) {
+	//------------------------------------------构建Render objcet------------------------------------------
 
 	auto boxRitem = std::make_unique<RenderItem>();
 	boxRitem->ObjCBIndex = 0;
@@ -268,103 +434,6 @@ void DX12RenderBackend::AddObj(std::shared_ptr<Renderable> ptr, const std::strin
 	for (auto& e : mAllRitems)
 		mOpaqueRitems.push_back(e.get());
 }
-
-void DX12RenderBackend::AddRenderTexture(std::shared_ptr<RenderTexture> ptr, const std::string& id) {
-	// 创建纹理
-	// 创建两个view
-
-	for (auto m : mats) {
-		如果哪个mat使用了这个texture，设置偏移
-	}
-	// cam的偏移直接用在heap里面的index
-}
-//void DX12RenderBackend::CreatePass() {
-//
-//}
-//void DX12RenderBackend::AddAE() {
-//
-//}
-
-void DX12RenderBackend::BulidMat(const std::map<std::string, std::shared_ptr<MaterialBase>>& _effectMap) {
-	CD3DX12_DESCRIPTOR_RANGE texTable;
-	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-	CD3DX12_DESCRIPTOR_RANGE constTable;
-	constTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
-
-	
-	int numTex = 0; int numConst = 0;
-	// 构建rootSignature  获取所有的变量
-	for (auto it = _effectMap.begin(); it != _effectMap.end(); it++) {
-		// 每种类型的参数数数量，创建material，添加对应类型参数的offset（descriptor）中的
-	}
-
-	mTexture["key"] = index;
-	mConst["key"] = index;
-	slotRootParameter[0].InitAsDescriptorTable(numTex, &texTable);
-	slotRootParameter[1].InitAsDescriptorTable(numConst, &constTable);
-
-
-	// TODO: 每种类型的register从0开始递增
-	// 存储按照顺序，绑定的时候只要提供第一个的地址就可以，rs会根据descriptor的数量自动绑定
-
-	// 构建材质
-}
-
-void DX12RenderBackend::BulidPSO(std::shared_ptr<Shader> shaderPtr, const std::string& psokey) {
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC newPsoDesc;
-
-	// shader parse 添加register
-	//获取 变量；根据index来确定register
-	for (auto texId : texArray) {
-		auto regist = mTexture[texId];
-	}
-
-	// 编译
-
-
-	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "VS", "vs_5_1");
-	mShaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\color.hlsl", nullptr, "PS", "ps_5_1");
-
-	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
-
-	ZeroMemory(&newPsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	newPsoDesc.InputLayout = { InputLayout.data(), (UINT)InputLayout.size() };
-	newPsoDesc.pRootSignature = _mRootSignature.Get();
-	newPsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(_mShaders["standardVS"]->GetBufferPointer()),
-		mShaders["standardVS"]->GetBufferSize()
-	};
-	newPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["opaquePS"]->GetBufferPointer()),
-		mShaders["opaquePS"]->GetBufferSize()
-	};
-
-	newPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	newPsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	newPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	newPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	newPsoDesc.SampleMask = UINT_MAX;
-	newPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	newPsoDesc.NumRenderTargets = 1;
-	newPsoDesc.RTVFormats[0] = mBackBufferFormat;
-	newPsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	newPsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	newPsoDesc.DSVFormat = mDepthStencilFormat;
-	// TODO: 用描述来创建对象
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&newPsoDesc, IID_PPV_ARGS(&_mPSOs[psokey])));
-
-}
-
-
-
-
 
 
 // 每个场景加载时调用一次
@@ -439,16 +508,47 @@ void DX12RenderBackend::DoAE(std::shared_ptr<AfterEffect> pAE) {
 	// 渲染quad
 }
 
+void DX12RenderBackend::DoRenderDeferred(){
+	//--------------------阶段1-------------------------
+	绑定mrt
+	绑定deferred专用pso
+	设置全局的矩阵 等参数信息
+
+	//--------------------阶段2-------------------------
+	// 绑定renderTarget
+	auto renderTarget = pCam->RenderTargetIndex;
+	
+	// rtv handle
+	setRenderTarget();
+
+	选择着色材质
+
+	渲染quad
+}
+
+void DX12RenderBackend::DoRenderForwardPlus(){
+	
+}
+void DX12RenderBackend::DoRenderForward(){
+
+}
+
 // TODO: 还需要考虑透明物体
 void DX12RenderBackend::DoRender(std::shared_ptr<Camera> pCam) {
-
-	// 设置全局的矩阵 等参数信息
-	// 绑定renderTarget
-	auto renderTarget = ;
-	if (pCam->RenderTarget.compare("main") == 0) // 引擎的renderTarget
-		renderTarget = ;
-	else
-		renderTarget = _rt[pCam->RenderTarget];
+	switch(GameContext::Instance().GetRenderType()){
+		case RenderType::Deferred:
+			RenderBackend::Instance().DoRenderDeferred();
+			break;
+		case RenderType::ForwardPlus:
+			RenderBackend::Instance().DoRenderForwardPlus();
+			break;
+		case RenderType::Forward:
+			RenderBackend::Instance().DoRenderForward();
+			break;
+		// default:
+		// 	throw;
+	}
+	
 
 
 
