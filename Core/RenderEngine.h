@@ -1,93 +1,148 @@
+#pragma once
 #include "../Utility/utility.h"
 #include "Context.h"
+#include "Resource.h"
+#include "ShaderObject.h"
+#include "RenderTarget.h"
+//#include "ShaderObject.h"
 namespace Falcon {
 	
 	
 
+	/*
+	{
+		//class RenderEngine {
+	//protected:
+	//	static RenderEngine* _selfPointer;
+	//	std::string _outputTex;
+	//	std::map<std::string, Resource::Ptr> _rescMap;
+	//public:
+	//	virtual Resource::Ptr CreateResource();
+	//	virtual Texture::Ptr CreateTexture();
+	//	virtual Buffer::Ptr CreateBuffer();
 
+	//	virtual void Initialize(HWND hMainWnd, int w, int h);
+	//	virtual void FreeResources();
+	//	virtual void Present();
+	//	static RenderEngine* Instance();
+
+	//	void AddOutput(const std::string& outputStr);
+	//	void BindInput(std::string& targetResourceName, const std::string& sourceResourceName);   
+
+
+	//};
+	//void RenderEngine::AddOutput(const std::string& outputStr) {
+	//	_outputTex = outputStr;
+	//}
+
+	//// TODO: Stupid
+	//void RenderEngine::BindInput(std::string& targetResourceName, const std::string& sourceResourceName) {
+	//	targetResourceName = sourceResourceName;
+	//}
+
+
+	//RenderEngine* RenderEngine::Instance() {
+	//	if (_selfPointer == nullptr) {
+	//		switch (Context::Instance().GetApi())
+	//		{
+	//		case ApiType::D3D12:
+	//			_selfPointer = new RenderEngineD3D12Impl();
+	//			break;
+	//		//case ApiType::D3D11:
+	//		//	// 抛出异常
+	//		//	break;
+	//		//case ApiType::OGL:
+	//		//	// 抛出异常
+	//		//	break;
+	//		//case ApiType::Vulkan:
+	//		//	// 抛出异常
+	//		//	break;
+	//		//case ApiType::Nan:
+	//		//	// 抛出异常
+	//		//	break;
+	//		default:
+	//			break;
+	//		}
+	//	}
+	//	return _selfPointer;
+	//}
+	}
+	*/
 	
 
-	class RenderEngine {
-	protected:
-		static RenderEngine* _selfPointer;
-		std::string _outputTex;
-		std::map<std::string, Resource::Ptr> _rescMap;
-	public:
-		virtual Resource::Ptr CreateResource();
-		virtual Texture::Ptr CreateTexture();
-		virtual Buffer::Ptr CreateBuffer();
-
-		virtual void Initialize(HWND hMainWnd, int w, int h);
-		virtual void FreeResources();
-		virtual void Present();
-		static RenderEngine* Instance();
-
-		void AddOutput(const std::string& outputStr);
-		void BindInput(std::string& targetResourceName, const std::string& sourceResourceName);   
-
-
-	};
-	void RenderEngine::AddOutput(const std::string& outputStr) {
-		_outputTex = outputStr;
-	}
-
-	// TODO: Stupid
-	void RenderEngine::BindInput(std::string& targetResourceName, const std::string& sourceResourceName) {
-		targetResourceName = sourceResourceName;
-	}
-
-
-	RenderEngine* RenderEngine::Instance() {
-		if (_selfPointer == nullptr) {
-			switch (Context::Instance().GetApi())
-			{
-			case ApiType::D3D12:
-				_selfPointer = new RenderEngineD3D12Impl();
-				break;
-			//case ApiType::D3D11:
-			//	// 抛出异常
-			//	break;
-			//case ApiType::OGL:
-			//	// 抛出异常
-			//	break;
-			//case ApiType::Vulkan:
-			//	// 抛出异常
-			//	break;
-			//case ApiType::Nan:
-			//	// 抛出异常
-			//	break;
-			default:
-				break;
-			}
-		}
-		return _selfPointer;
-	}
-
-	class RenderEngineD3D12Impl: public RenderEngine {
+	//class RenderEngineD3D12Impl: public RenderEngine {
+	class RenderEngineD3D12Impl  {
 	private:
+
+
+
+
+
+		/*static HRESULT
+			GetHardwareAdpter(_In_ IDXGIFactory1* pFactory,
+				_In_ BOOL bRequestHighPerformanceAdapter,
+				_In_ BOOL(*AdapterSelectionCallback)(IDXGIAdapter1*),
+				_Out_ IDXGIAdapter1** ppAdapter);
+		static HRESULT CreateCommandObjects();
+		static HRESULT CreateSwapChain(HWND hwnd, int width, int height,
+			IDXGIFactory4* pDXGIFactory);
+		static HRESULT ResizeRenderedBuffers(int width, int height);
+		static HRESULT CreateRtvAndDsvDescriptorHeaps(int extraRtvCount,
+			int extraDsvCount);
+		static VOID FlushCommandQueue();*/
+
+
+		ComPtr<ID3D12Device> _device;
+		INT64 _iFencePoint;
+		ComPtr<ID3D12Fence> _pd3dFence;
+		HANDLE _hFenceEvent;
+
+		UINT _RtvDescriptorSize;
+		UINT _DsvDescriptorSize;
+		UINT _CbvSrvUavDescriptorSize;
+
 		static const uint _SwapChainBufferCount = 3;
+
+		// Command queue
+		ComPtr<ID3D12CommandQueue> _d3dCommandQueue;
+		ComPtr<ID3D12GraphicsCommandList> _d3dCommandList;
+		ComPtr<ID3D12CommandAllocator> _d3dDirectCmdAlloc[_SwapChainBufferCount];
+
+		static constexpr DXGI_FORMAT _BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+		static constexpr DXGI_FORMAT _DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+
+
+		static D3D12_VIEWPORT _ScreenViewport;
+		static D3D12_RECT _ScreenScissorRect;
+
+
+
+
+		static RenderEngineD3D12Impl* _selfPointer;
+		std::string _outputTex;
+		std::map<std::string, ResourceD3D12Impl::Ptr> _rescMap;
+		
+		uint _width;
+		uint _height;
+
 		ComPtr<IDXGISwapChain4> _swapChain;
 		ComPtr<ID3D12Resource> _pSwapChainBuffers[_SwapChainBufferCount];
+		ComPtr<ID3D12Resource> _pDepthStencilBuffer;
 
-		ComPtr<ID3D12GraphicsCommandList> _commandList;
-
+		/*ComPtr<ID3D12GraphicsCommandList> _commandList;
 		ComPtr<ID3D12CommandAllocator> _commandAllocators[FrameCount];
-		ComPtr<ID3D12CommandQueue> _commandQueue;
+		ComPtr<ID3D12CommandQueue> _commandQueue;*/
 
 
 
 		uint currBinding = -1;
+		uint currRSUsabeIndex = 0;
 		std::vector< ComPtr<ID3D12RootSignature>> _mRootSignatures;
 		//std::vector<std::map<std::string, int>> shaderVarNameToRootSignatureSlot;
 		std::vector<std::map<std::string, int>> bindingNameToRootSignatureSlot;
 		std::vector<std::map<std::string, ResourceState>> shaderVarNameToBindingState;
 
-
-		ComPtr<ID3D12DescriptorHeap> g_pRTVDescriptorHeap;
-		ComPtr<ID3D12DescriptorHeap> g_pDSVDescriptorHeap;
-		
-
-		
 		/*
 		// 一个renderPass维护一个root signature，一组shader对应一个管线
 		// 每个shader（管线）一个space，防止因为共用root signature导致冲突
@@ -120,150 +175,100 @@ namespace Falcon {
 		*/
 		
 		
-		
-		
-		ComPtr<ID3D12DescriptorHeap> g_pSRVDescriptorHeap;
-		ComPtr<ID3D12DescriptorHeap> g_pUAVDescriptorHeap;
+		ComPtr<ID3D12DescriptorHeap> _pRTVDescriptorHeap;
+		ComPtr<ID3D12DescriptorHeap> _pDSVDescriptorHeap;
+		ComPtr<ID3D12DescriptorHeap> _pSRVDescriptorHeap;
+		ComPtr<ID3D12DescriptorHeap> _pUAVDescriptorHeap;
 		// 常量直接绑定
 
-		
 
+		void FlushCommandQueue();
+		HRESULT CreateCommandObjects();
+		HRESULT CreateDescriptorHeaps();
+		HRESULT CreateSwapChain(HWND hwnd, int width, int height, IDXGIFactory4* pDXGIFactory);
+		HRESULT GetHardwareAdpter(_In_ IDXGIFactory1* pFactory,
+			_In_ BOOL bRequestHighPerformanceAdapter,
+			_In_ BOOL(*AdapterSelectionCallback)(IDXGIAdapter1*),
+			_Out_ IDXGIAdapter1** ppAdapter);
+
+
+		uint _currAvailableRTVDescriptorIndex = 0;
+		uint _currAvailableDSVDescriptorIndex = 0;
+		uint _currAvailableSRVDescriptorIndex = 0;
+		uint _currAvailableUAVDescriptorIndex = 0;
+
+		map<string, ComPtr<ID3D12PipelineState>> _pipelineStates;
+
+		uint _iCurrentFrameIndex;
 	public:
-		RenderEngineD3D12Impl() {
-
-		}
-
-		virtual Resource::Ptr CreateResource();
-		virtual Texture::Ptr CreateTexture();
-		virtual Buffer::Ptr CreateBuffer();
-		virtual void Initialize(HWND hMainWnd, int w, int h);
+		RenderEngineD3D12Impl();
+		static RenderEngineD3D12Impl* Instance();
+		void AddOutput(const std::string& outputStr);
+		// TODO: Stupid
+		void BindInput(std::string& targetResourceName, const std::string& sourceResourceName);
+		virtual HRESULT Initialize(HWND hMainWnd, int w, int h);
 		virtual void FreeResources();
-
 		virtual void Present();
-
 		virtual void SetBindingID(uint rsid);
+		bool BuildRootSignature(std::vector<ShaderObject::Ptr>& ShaderObjs);
+		bool BindConstantToComputePipeline(const std::string& constVarName, ResourceD3D12Impl::Ptr resource);
+		bool BindConstantToGraphicsPipeline(const std::string& constVarName, ResourceD3D12Impl::Ptr resource);
+		void BindResourceBindingToComputePipeline(ShaderResourceBindingD3D12Impl::Ptr srb);
+		void BindResourceBindingToGraphicsPipeline(ShaderResourceBindingD3D12Impl::Ptr srb);
 
-		bool BuildRootSignature(std::vector<ShaderObject>& ShaderObjs);
-		bool BindConstantToPipeline(const std::string& constVarName, Resource::Ptr resource);
-		void BindResourceBindingToPipeline(ShaderResourceBinding::Ptr srb);
+		void CreateComputePipeline(uint bufferSize, void* bufferPointer, const string& pipelineName);
+		void CreateGraphicsPipeline(const string& pipelineName, uint vsBufferSize, void* vsBufferPointer, uint psBufferSize, void* psBufferPointer, uint numRenderTarget = 1, uint gsBufferSize = 0, void* gsBufferPointer = nullptr);
+		//void CreatePipeline(uint bufferSize, void* bufferPointer, const string& pipelineName);
+		void SetPipeline(const std::string& pipelineName);
+
+		D3D12_CPU_DESCRIPTOR_HANDLE GetCPUTopRTVDescriptorHandle();
+		D3D12_CPU_DESCRIPTOR_HANDLE GetCPUTopDSVDescriptorHandle();
+		D3D12_GPU_DESCRIPTOR_HANDLE GetGPUTopSRVDescriptorHandle();
+		D3D12_GPU_DESCRIPTOR_HANDLE GetGPUTopUAVDescriptorHandle();
 
 
+		ComPtr<ID3D12Device> GetD3D12Device();
+		ComPtr<ID3D12GraphicsCommandList> GetCmdList();
 
+		void CreateRenderTargetView(ID3D12Resource* pResource);
+		void CreateDepthStencilView(ID3D12Resource* pResource);
+		void CreateShaderResourceView(ID3D12Resource* pResource);
+		void CreateUnorderedAccessView(ID3D12Resource* pResource);
 
-		void UAVBarrier(std::vector<Resource::Ptr> pResources);
+		void UAVBarrier(std::vector<ResourceD3D12Impl::Ptr> pResources);
 
 		void Resize(int w, int h);
 		void ExecuteCommandList();
 
+		void AddResourceToMap(const string& resName, ResourceD3D12Impl::Ptr resource);
+
+		
+		uint GeneratePossibleRSIndex();
+		void ReserveRootSignature(uint size);
+
+		uint2 GetWidthHeight();
+
+		void SetRenderTargets(uint numRenderTarget, RenderTargetD3D12Impl::Ptr rt);
+		void ClearRenderTargets(uint numRenderTarget, RenderTargetD3D12Impl::Ptr rt, const FLOAT ColorRGBA[4]);
+		void SetVertexBuffers(D3D12_VERTEX_BUFFER_VIEW vb);
+		void SetIndexBuffers(D3D12_INDEX_BUFFER_VIEW ib);
+		void SetTopology(D3D_PRIMITIVE_TOPOLOGY);
+
+		void SetViewports();
+		void SetScissorRects();
+
+		void DrawInstanced(uint IndexCountPerInstance, uint InstanceCount);
+
+		void BeginRecording();
+		void EndRecording();
+
+
+		ResourceD3D12Impl::Ptr GetResource(const string& resName);
 	};
-	void RenderEngineD3D12Impl::SetBindingID(uint rsid) {
-		if (rsid == -1) {
-			currBinding = -1;
-		}
-		else {
-			currBinding = rsid;
-			_commandList->SetRootSignature(_mRootSignatures[rsid].Get());
-		}
-
-	}
-
-	// 要求用户自行添加
-	void RenderEngineD3D12Impl::UAVBarrier(std::vector<Resource::Ptr> pResources) {
-		std::vector< CD3DX12_RESOURCE_BARRIER> barriers(pResources.size());
-		for (size_t i = 0; i < pResources.size(); i++) {
-			barriers[i] = CD3DX12_RESOURCE_BARRIER::UAV(pResources[i].Get());
-		}
-		_commandList->ResourceBarrier(pResources.size(), barriers.data());
-
-	}
-	
 
 
 
 
-	//}
-	// 通过shader反射的结果来构建root signature
-	//https://docs.microsoft.com/en-us/windows/win32/api/d3d12shader/nn-d3d12shader-id3d12shaderreflection  
-	bool RenderEngineD3D12Impl::BuildRootSignature(std::vector<ShaderObject>& ShaderObjs) {
-		// 每个space 每种类型一个parameter
-
-
-		
-		// varName   type   index
-		std::vector<CD3DX12_ROOT_PARAMETER> rootParameters;
-		rootParameters.reserve(10000);
-
-		uint slotIndex = 0;
-
-		std::map<std::string, Pair> parseResult;    
-		for (size_t i = 0; i < numOfShader; i++) {
-			auto srvTable = shaderObject->GetSRVTable();
-			auto uavTable = shaderObject->GetUAVTable();
-
-			
-
-			auto srvtn = shaderObj->SRVTableName();
-			auto uavtn = shaderObj->UAVTableName();
-			bindingNameToRootSignatureSlot[currBinding][srvtn] = slotIndex++;
-			bindingNameToRootSignatureSlot[currBinding][uavtn] = slotIndex++;
-
-			CD3DX12_ROOT_PARAMETER srvPara, uavPara;
-			srvPara.InitAsDescriptorTable(numRange, range);
-			uavPara.InitAsDescriptorTable(numRange, range);
-			rootParameters.push_back(srvPara);
-			rootParameters.push_back(uavPara);
-
-
-			for () {
-				// for constant
-				CD3DX12_ROOT_PARAMETER constPara;
-				constPara.InitAsConstantBufferView(registerIndex++, space);
-
-				bindingNameToRootSignatureSlot[currBinding][constantName] = slotIndex++;
-
-			}
-			
-
-		}
-
-		// TODO: target状态
-		shaderVarNameToBindingState[currBinding][varName] = item.Type;
-
-
-		vector<D3D12_STATIC_SAMPLER_DESC> sampler();
-		int index = 0;
-
-
-		
-		CD3DX12_ROOT_SIGNATURE_DESC globalRootSignatureDesc;
-		globalRootSignatureDesc.Init(rootParameters.size(), rootParameters.data(), sampler.size(), sampler.data(), rootSignatureFlags);
-
-		auto device = m_deviceResources->GetD3DDevice();
-		ComPtr<ID3DBlob> blob;
-		ComPtr<ID3DBlob> error;
-
-		ThrowIfFailed(D3D12SerializeRootSignature(&globalRootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &error), error ? static_cast<wchar_t*>(error->GetBufferPointer()) : nullptr);
-		ThrowIfFailed(device->CreateRootSignature(1, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&(_mRootSignatures[currBinding]))));
-	}
-
-
-
-
-	bool RenderEngineD3D12Impl::BindConstantToPipeline(const std::string& constVarName, Resource::Ptr resource) {
-		if (currBinding == -1)
-			return false;
-
-		ResourceState targetRS = shaderVarNameToBindingState[currBinding][shaderVarName];
-
-		if (targetRS != resource->CurrentState()) {
-			// barrier
-
-			resource->SetState(targetRS);
-		}
-		_commandList->SetGraphicsRootConstantBufferView(shaderVarNameToRootSignatureSlot[currBinding][shaderVarName], resource->VirtualGPUAddress());
-
-		return true;
-	}
 
 	//bool RenderEngineD3D12Impl::BindScene() {
 	//	// 绑定场景作为SRV
@@ -296,253 +301,52 @@ namespace Falcon {
 	//}
 	*/
 
-	void RenderEngineD3D12Impl::BindResourceBindingToPipeline(ShaderResourceBinding::Ptr srb) {
-		// 判断root signature
-
-		for (auto bindingTable : srb) {
-			_commandList->SetGraphicsRootDescriptorTable(shaderVarNameToRootSignatureSlot[currBinding][], bindingTable->HeadDescriptorHandle());
-
-		}
-		
-	}
-
-	void RenderEngineD3D12Impl::Resize(int w, int h) {
-
-		   HRESULT hr;
-		   int i;
-		   DXGI_SWAP_CHAIN_DESC scDesc;
-
-		  /* assert(g_pd3dDevice && "Device must be available!");
-		   assert(g_pd3dDirectCmdAlloc && "Command allocator must be available!");
-		   assert(g_pSwapChain && "Swap chain must be available!");*/
-
-		   // Flush before changing any resources.
-		   FlushCommandQueue();
-
-		   V_RETURN(_commandList->Reset(g_pd3dDirectCmdAlloc.Get(), nullptr));
-
-		   // Release the previous resources we will be recreating.
-		   for (i = 0; i < g_iSwapChainBufferCount; ++i)
-		     g_pSwapChainBuffers[i] = nullptr;
-		   g_pDepthStencilBuffer = nullptr;
-
-		   _swapChain->GetDesc(&scDesc);
-
-		   // Resize the swap chain.
-		   V_RETURN(_swapChain->ResizeBuffers(g_iSwapChainBufferCount, w, h,
-		                                        g_BackBufferFormat, scDesc.Flags));
-
-		   g_iCurrentFrameIndex = 0;
-
-		   // RTVs
-		   D3D12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle = {
-		       g_pRTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart()};
-		   for (i = 0; i < g_iSwapChainBufferCount; ++i) {
-		     g_pSwapChain->GetBuffer(i, IID_PPV_ARGS(&g_pSwapChainBuffers[i]));
-
-		     g_pd3dDevice->CreateRenderTargetView(g_pSwapChainBuffers[i].Get(), nullptr,
-		                                          rtvHeapHandle);
-
-		     rtvHeapHandle.ptr += g_uRtvDescriptorSize;
-		   }
-
-		   // Create depth-stencil buffer and the view.
-		   D3D12_RESOURCE_DESC dsd;
-		   dsd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-		   dsd.Alignment = 0;
-		   dsd.Width = w;
-		   dsd.Height = h;
-		   dsd.DepthOrArraySize = 1;
-		   dsd.MipLevels = 1;
-
-		   dsd.Format = DXGI_FORMAT_R24G8_TYPELESS;
-		   dsd.SampleDesc.Count = 1;
-		   dsd.SampleDesc.Quality = 0;
-		   dsd.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-		   dsd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-		   D3D12_CLEAR_VALUE optValue;
-		   optValue.Format = g_DepthStencilFormat;
-		   optValue.DepthStencil.Depth = 1.0f;
-		   optValue.DepthStencil.Stencil = 0;
-
-		   D3D12_HEAP_PROPERTIES heapProps = {D3D12_HEAP_TYPE_DEFAULT,
-		                                      D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-		                                      D3D12_MEMORY_POOL_UNKNOWN, 0, 0};
-
-		   V_RETURN(g_pd3dDevice->CreateCommittedResource(
-		       &heapProps, D3D12_HEAP_FLAG_NONE, &dsd, D3D12_RESOURCE_STATE_COMMON,
-		       &optValue, IID_PPV_ARGS(&g_pDepthStencilBuffer)));
-
-		   // Create descriptor to mip level 0 of entire resource using the format of the
-		   // resource.
-		   D3D12_DEPTH_STENCIL_VIEW_DESC ddsvd;
-		   ddsvd.Flags = D3D12_DSV_FLAG_NONE;
-		   ddsvd.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-		   ddsvd.Format = g_DepthStencilFormat;
-		   ddsvd.Texture2D.MipSlice = 0;
-		   g_pd3dDevice->CreateDepthStencilView(
-		       g_pDepthStencilBuffer.Get(), &ddsvd,
-		       g_pDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
-		   // Transition the resource from its initial state to be used as a depth
-		   // buffer.
-		   D3D12_RESOURCE_BARRIER dsvBarrier = {D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-		                                        D3D12_RESOURCE_BARRIER_FLAG_NONE};
-		   dsvBarrier.Transition.pResource = g_pDepthStencilBuffer.Get();
-		   dsvBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		   dsvBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-		   dsvBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-		   _commandList->ResourceBarrier(1, &dsvBarrier);
-
-		   // Execute the resize commands.
-		   V_RETURN(_commandList->Close());
-		   ID3D12CommandList *cmdLists[] = { _commandList.Get()};
-		   _commandQueue->ExecuteCommandLists(1, cmdLists);
-
-		   // Wait until resize is complete.
-		   FlushCommandQueue();
-
-		   // Update the viewport transform to cover the client area.
-		   g_ScreenViewport.TopLeftX = 0.f;
-		   g_ScreenViewport.TopLeftY = 0.f;
-		   g_ScreenViewport.Width = 1.f * w;
-		   g_ScreenViewport.Height = 1.f * h;
-		   g_ScreenViewport.MinDepth = 0.f;
-		   g_ScreenViewport.MaxDepth = 1.f;
-
-		   g_ScreenScissorRect = {0, 0, (LONG)w, (LONG)h};
-
-		   //return hr;
-	}
-
-	void RenderEngineD3D12Impl::Initialize(HWND hMainWnd, int w, int h) {
-		HRESULT hr;
-		  UINT dxgiFactoryFlags = 0;
-		#ifdef _DEBUG
-		  ComPtr<ID3D12Debug> debugController;
-		
-		  if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
-		    debugController->EnableDebugLayer();
-		    dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-		  }
-		#endif
-		
-		  ComPtr<IDXGIFactory4> factory;
-		  ComPtr<IDXGIAdapter1> adapter;
-		
-		  V_RETURN(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
-		
-		  auto AdapterSelctionPred = [](IDXGIAdapter1 *pAdapter) {
-				DXGI_ADAPTER_DESC1 desc;
-				pAdapter->GetDesc1(&desc);
-		
-				if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-				  // Basic Render Driver Adapter
-				  return FALSE;
-				} else {
-				  // Check whether the adapter support dx12
-				  if (FAILED(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0,
-											   IID_PPV_ARGS((ID3D12Device **)0)))) {
-					return FALSE;
-				  }
-				  return TRUE;
-				}
-		  };
-		
-		  // select a adapter
-		  V_RETURN(
-		      GetHardwareAdpter(factory.Get(), TRUE, AdapterSelctionPred, &adapter));
-		  // create device
-		  V_RETURN(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0,
-		                             IID_PPV_ARGS(&g_pd3dDevice)));
-		
-		  g_iFencePoint = 0;
-		  V_RETURN(g_pd3dDevice->CreateFence(g_iFencePoint, D3D12_FENCE_FLAG_NONE,
-		                                     IID_PPV_ARGS(&g_pd3dFence)));
-		
-		  g_uRtvDescriptorSize = g_pd3dDevice->GetDescriptorHandleIncrementSize(
-		      D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		  g_uDsvDescriptorSize = g_pd3dDevice->GetDescriptorHandleIncrementSize(
-		      D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		  g_uCbvSrvUavDescriptorSize = g_pd3dDevice->GetDescriptorHandleIncrementSize(
-		      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		
-		  V_RETURN(CreateCommandObjects());
-		  V_RETURN(CreateSwapChain(hMainWnd, w, h, factory.Get()));
-		  V_RETURN(CreateRtvAndDsvDescriptorHeaps(0, 0));
-		
-		  //return hr;
-	}
-
-
+	
 	
 
-
-	// Send the command list off to the GPU for processing.
-	void RenderEngineD3D12Impl::ExecuteCommandList()
-	{
-		ThrowIfFailed(_commandList->Close());
-		ID3D12CommandList* commandLists[] = { _commandList.Get() };
-		_commandQueue->ExecuteCommandLists(ARRAYSIZE(commandLists), commandLists);
-	}
-	void RenderEngineD3D12Impl::Present() {
-		/*
-		//auto canPresent  = checkIf(renderTarget, D3D12_RESOURCE_STATE_PRESENT);
-
-		D3D12_RESOURCE_BARRIER rdBarriers[2] = { 
-			{
-				D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-				D3D12_RESOURCE_BARRIER_FLAG_NONE,
-			},
-			{
-				D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-				D3D12_RESOURCE_BARRIER_FLAG_NONE,
-			},
-		};
-		rdBarriers[0].Transition.pResource = swapChain[g_iCurrentFrameIndex].Get();
-		rdBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-		rdBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		rdBarriers[1].Transition.pResource = outputTexturePtr.Get();
-		rdBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		rdBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-		//g_pd3dCommandList->ResourceBarrier(2, rdBarriers);
-
-		*/
-		 // 把outputTexture的东西copy到当前的swapchain上
-
-		D3D12_RESOURCE_BARRIER preCopyBarriers[2];
-		preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(_swapChain[g_iCurrentFrameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
-		preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(_rescMap[_outputTex].Get(), _rescMap[_outputTex]->CurrentState(), D3D12_RESOURCE_STATE_COPY_SOURCE);
-		g_pd3dCommandList->ResourceBarrier(ARRAYSIZE(preCopyBarriers), preCopyBarriers);
-
-		g_pd3dCommandList->CopyResource(_swapChain[g_iCurrentFrameIndex].Get(), _rescMap[_outputTex].Get());
-
-		D3D12_RESOURCE_BARRIER postCopyBarriers[2];
-		postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(_swapChain[g_iCurrentFrameIndex].Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
-		//postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_raytracingOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-		g_pd3dCommandList->ResourceBarrier(1, postCopyBarriers);
+	//void CreateRTPipeline(uint bufferSize, void* bufferPointer, const string& rayGenName, vector<string>& hitGroupName, vector<string>& missGroupName, const string& pipelineName) {
+		//	CD3DX12_STATE_OBJECT_DESC raytracingPipeline{ D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE };
 
 
-		ExecuteCommandList();
+		//	auto lib = raytracingPipeline.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+		//	D3D12_SHADER_BYTECODE libdxil = CD3DX12_SHADER_BYTECODE(bufferPointer, bufferSize);
+		//	lib->SetDXILLibrary(&libdxil);
+		//	// Define which shader exports to surface from the library.
+		//	// If no shader exports are defined for a DXIL library subobject, all shaders will be surfaced.
+		//	// In this sample, this could be ommited for convenience since the sample uses all shaders in the library. 
+		//	{
+		//		lib->DefineExport(rayGenName);
+		//		lib->DefineExport(hitGroupName);
+		//		lib->DefineExport(missGroupName);
+		//	}
 
-		HRESULT hr;
-		if (m_options & c_AllowTearing)
-		{
-			// Recommended to always use tearing if supported when using a sync interval of 0.
-			// Note this will fail if in true 'fullscreen' mode.
-			hr = _swapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
-		}
-		else
-		{
-			// The first argument instructs DXGI to block until VSync, putting the application
-			// to sleep until the next VSync. This ensures we don't waste any cycles rendering
-			// frames that will never be displayed to the screen.
-			hr = _swapChain->Present(1, 0);
-		}
+		//	// Triangle hit group
+		//	// A hit group specifies closest hit, any hit and intersection shaders to be executed when a ray intersects the geometry's triangle/AABB.
+		//	// In this sample, we only use triangle geometry with a closest hit shader, so others are not set.
+		//	auto hitGroup = raytracingPipeline.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+		//	hitGroup->SetClosestHitShaderImport(c_closestHitShaderName);
+		//	hitGroup->SetHitGroupExport(c_hitGroupName);
+		//	hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
 
-	}
+		//	// Shader config
+		//	// Defines the maximum sizes in bytes for the ray payload and attribute structure.
+		//	auto shaderConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
+		//	UINT payloadSize = sizeof(XMFLOAT4);    // float4 pixelColor
+		//	UINT attributeSize = sizeof(XMFLOAT2);  // float2 barycentrics
+		//	shaderConfig->Config(payloadSize, attributeSize);
 
+		//	// Local root signature and shader association
+		//	// This is a root signature that enables a shader to have unique arguments that come from shader tables.
+		//	CreateLocalRootSignatureSubobjects(&raytracingPipeline);
 
+		//	auto globalRootSignature = raytracingPipeline.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+		//	globalRootSignature->SetRootSignature(m_raytracingGlobalRootSignature.Get());
+
+		//	auto pipelineConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+		//	UINT maxRecursionDepth = 1; // ~ primary rays only. 
+		//	pipelineConfig->Config(maxRecursionDepth);
+
+		//	// Create the state object.
+		//	m_dxrDevice->CreateStateObject(raytracingPipeline, IID_PPV_ARGS(&m_dxrStateObject));
+		//}
 }

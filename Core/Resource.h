@@ -1,4 +1,4 @@
-
+#pragma once
 #include <memory>
 #include <string>
 #include "../Utility/utility.h"
@@ -7,30 +7,30 @@
 
 // TODO: execute之前 检查资源依赖关系（图）根据这个来插入barrier    所有的资源根据管线依赖关系构建一个有向图，如果某个资源被多个管线依赖，则会根据图的依赖关系自动进行转换
 namespace Falcon {
-    class Resource {
+    /*class Resource {
     public:
         using Ptr = std::shared_ptr<Resource>;
         ResourceState  _currentState;
-    };
+    };*/
 
 
     
 
-    class ResourceD3D12Impl : public Resource {
+    class ResourceD3D12Impl {
     protected:
         ComPtr<ID3D12Resource> resource;
         ComPtr<ID3D12Resource> uploadBuffer;
         
 
-        D3D12_RESOURCE_STATES state;
+        D3D12_RESOURCE_STATES _currentState;
 
     public:
         using Ptr = std::shared_ptr<ResourceD3D12Impl>;
         
-        ResourceState GetCurrentState()const;
+        D3D12_RESOURCE_STATES GetCurrentState()const;
         void SetState(D3D12_RESOURCE_STATES s);
 
-
+        ID3D12Resource* GetResourcePointer();
     };
     /*D3D12_CPU_DESCRIPTOR_HANDLE ResourceD3D12Impl::GetSRVDescriptorCPU() const {
         return cpuSRVDescriptorHandle;
@@ -38,29 +38,37 @@ namespace Falcon {
     D3D12_GPU_DESCRIPTOR_HANDLE ResourceD3D12Impl::GetSRVDescriptorGPU() const {
         return gpuSRVDescriptorHandle;
     }*/
-    ResourceState ResourceD3D12Impl::GetCurrentState() const {
+    ID3D12Resource* ResourceD3D12Impl::GetResourcePointer() {
+        return resource.Get();
+    }
+
+    D3D12_RESOURCE_STATES ResourceD3D12Impl::GetCurrentState() const {
         return _currentState;
     }
     void ResourceD3D12Impl::SetState(D3D12_RESOURCE_STATES s) {
-        if (s != state) {
+        if (s != _currentState) {
             CD3DX12_RESOURCE_BARRIER barrier;
-            barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), state, s);
-            _commandList->ResourceBarrier(1, &barrier);
+            barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), _currentState, s);
+            RenderEngineD3D12Impl::Instance()->GetCmdList()->ResourceBarrier(1, &barrier);
         }
-        state = s;
+        _currentState = s;
     }
 
 
     
-    class Buffer : public Resource {
+    /*class Buffer : public Resource {
     public:
         using Ptr = std::shared_ptr<Buffer>;
 
-    };
+    };*/
     
-    class BufferD3D12Impl : public ResourceD3D12Impl, public Buffer {
+    class BufferD3D12Impl : public ResourceD3D12Impl {
 
-
+        /*D3D12_INDEX_BUFFER_VIEW _ibv;
+        D3D12_VERTEX_BUFFER_VIEW _vbv;*/
+        uint _bufferSize;
+        uint _structSize;
+        uint _elementNum;
     public:
         using Ptr = std::shared_ptr<BufferD3D12Impl>;
 
@@ -70,25 +78,36 @@ namespace Falcon {
         // 一个rootsignature只能有64个parameter，如果每个变量都创建一个parameter 则会很快消耗完  https://dench.flatlib.jp/d3d/d3d12/descriptor
         //https://zhuanlan.zhihu.com/p/73016473  vk对比dx
 
+        BufferD3D12Impl() {
 
-        static BufferD3D12Impl::Ptr Create(uint structSize, uint numElement) {
-            
+        }
+        uint GetElementNum() {
+            return _elementNum;
+        }
 
-            ThrowIfFailed(m_device->CreateCommittedResource(
+
+        
+
+        BufferD3D12Impl(uint numElement, uint structSize) {
+            _bufferSize = numElement * structSize;
+            _structSize = structSize;
+            _elementNum = numElement;
+
+            RenderEngineD3D12Impl::Instance()->GetD3D12Device()->CreateCommittedResource(
                 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
                 D3D12_HEAP_FLAG_NONE,
-                &CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
+                &CD3DX12_RESOURCE_DESC::Buffer(structSize * numElement),
                 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
                 nullptr,
-                IID_PPV_ARGS(&m_vertexBuffer)));
+                IID_PPV_ARGS(&resource));
 
-            ThrowIfFailed(m_device->CreateCommittedResource(
+            RenderEngineD3D12Impl::Instance()->GetD3D12Device()->CreateCommittedResource(
                 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
                 D3D12_HEAP_FLAG_NONE,
-                &CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
+                &CD3DX12_RESOURCE_DESC::Buffer(structSize * numElement),
                 D3D12_RESOURCE_STATE_GENERIC_READ,
                 nullptr,
-                IID_PPV_ARGS(&m_vertexBufferUpload)));
+                IID_PPV_ARGS(&uploadBuffer));
 
 
             /*if (resourceFlag & ResourceUsageFlag::UAV) {
@@ -105,29 +124,27 @@ namespace Falcon {
         }
         void SetBlob(const void* pData, size_t length) {
             UINT8* mappedUploadHeap = nullptr;
-            ThrowIfFailed(uploadBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedUploadHeap)));
+            uploadBuffer->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedUploadHeap));
 
-             memcpy(mappedUploadHeap, pData, length);
+            memcpy(mappedUploadHeap, pData, length);
 
             uploadBuffer->Unmap(0, &CD3DX12_RANGE(0, 0));
 
-
-            m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST));
-            m_commandList->CopyBufferRegion(resource.Get(), 0, uploadBuffer.Get(), 0, resource->GetDesc().Width);
-            m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+            RenderEngineD3D12Impl::Instance()->GetCmdList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST));
+            RenderEngineD3D12Impl::Instance()->GetCmdList()->CopyBufferRegion(resource.Get(), 0, uploadBuffer.Get(), 0, resource->GetDesc().Width);
+            RenderEngineD3D12Impl::Instance()->GetCmdList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
         }
 
 
 
     };
 
-    class Texture : public Resource {
-    public:
-        using Ptr = std::shared_ptr<Texture>;
-    };
-    // TODO: texture同时可能是srv 也可能是uav
+    //class Texture : public Resource {
+    //public:
+    //    using Ptr = std::shared_ptr<Texture>;
+    //};
 
-    class TextureD3D12Impl : public ResourceD3D12Impl, public Texture {
+    class TextureD3D12Impl : public ResourceD3D12Impl{
 
     protected:
         uint _width, _height;
@@ -137,49 +154,65 @@ namespace Falcon {
         using Ptr = std::shared_ptr<TextureD3D12Impl>;
         
 
-        void CreateTextureFromFile(const std::string& path);
-        void CreateTexture(int w, int h, format);
+        TextureD3D12Impl(const std::string& path, DXGI_FORMAT format, D3D12_RESOURCE_STATES initResourceState);
+        TextureD3D12Impl(int w, int h, DXGI_FORMAT format, D3D12_RESOURCE_STATES initResourceState);
 
     };
-    void TextureD3D12Impl::CreateTexture(int w, int h, format){
+    TextureD3D12Impl::TextureD3D12Impl(const std::string& path, DXGI_FORMAT format, D3D12_RESOURCE_STATES initResourceState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE) {
+
+        std::vector<UINT8> texture = GenerateTextureData();
+
+
+
         // Create the output resource. The dimensions and format should match the swap-chain.
-        auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, w, h, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+        auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, w, h, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
 
         auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-        ThrowIfFailed(device->CreateCommittedResource(
-            &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &uavDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_raytracingOutput)));
+        RenderEngineD3D12Impl::Instance()->GetD3D12Device()->CreateCommittedResource(
+            &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &uavDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resource));
 
-        /*if (resourceFlag & ResourceUsageFlag::UAV) {
+        _currentState = initResourceState;
 
-            D3D12_CPU_DESCRIPTOR_HANDLE uavDescriptorHandle;
-            m_raytracingOutputResourceUAVDescriptorHeapIndex = AllocateDescriptor(&uavDescriptorHandle, m_raytracingOutputResourceUAVDescriptorHeapIndex);
-            D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
-            UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-            device->CreateUnorderedAccessView(m_raytracingOutput.Get(), nullptr, &UAVDesc, uavDescriptorHandle);
-            m_raytracingOutputResourceUAVGpuDescriptor = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), m_raytracingOutputResourceUAVDescriptorHeapIndex, m_descriptorSize);
-        }
-        if (resourceFlag & ResourceUsageFlag::SRV) {
 
-        }*/
+
+        const UINT64 uploadBufferSize = GetRequiredIntermediateSize(resource.Get(), 0, 1);
+
+        // Create the GPU upload buffer.
+        RenderEngineD3D12Impl::Instance()->GetD3D12Device()->CreateCommittedResource(
+            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&uploadBuffer));
+
+
+        D3D12_SUBRESOURCE_DATA textureData = {};
+        textureData.pData = &texture[0];
+        textureData.RowPitch = TextureWidth * TexturePixelSize;
+        textureData.SlicePitch = textureData.RowPitch * TextureHeight;
+
+        UpdateSubresources(RenderEngineD3D12Impl::Instance()->GetCmdList().Get(), resource.Get(), uploadBuffer.Get(), 0, 0, 1, &textureData);
+        RenderEngineD3D12Impl::Instance()->GetCmdList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, initResourceState));
+
+        
+    }
+    TextureD3D12Impl::TextureD3D12Impl(int w, int h, DXGI_FORMAT format,D3D12_RESOURCE_STATES initResourceState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+    {
+        // Create the output resource. The dimensions and format should match the swap-chain.
+        auto uavDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, w, h, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+
+        auto defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        RenderEngineD3D12Impl::Instance()->GetD3D12Device()->CreateCommittedResource(
+            &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &uavDesc, initResourceState, nullptr, IID_PPV_ARGS(&resource));
+
+        _currentState = initResourceState;
+        
         
 
     }
 
-    //// 用户需要自行拆分
-    //class ResourceBinding {
-    //    std::map<std::string, Resource::Ptr> _binding;
-    //    // 通过初始化列表  _binding = {{"g_Diffuse", DiffuseTexturePtr}, {}};
-
-    //    void Create(BaseGraphicsPass:Ptr renderPass) {
-    //        auto shaderRegisterSpace = renderPass->GetShaderRegisterSpace();
-
-    //        auto 
-    //    }
-
-    //    void Bind() {
-    //        SetGraphicsRootDescriptorTable();
-    //    }
-    //};
+   
 
 }
 

@@ -1,62 +1,65 @@
+#pragma once
 #include <string>
 #include <memory>
 #include "BaseGraphicsPass.h"
 #include "../Core/RenderEngine.h"
-
-enum TOPOLOGY_TYPE{
-    TRIANGLE = 0,
-    TRIANGLE_STRIP = 1,
-    POINT = 2
-};
+#include "../Core/Resource.h"
+#include "../Core/RenderFactory.h"
 namespace Falcon {
 
     class FullscreenPass : public BaseGraphicsPass {
-        
-    using Ptr = std::shared_ptr<FullscreenPass>;
+    public: 
+        using Ptr = std::shared_ptr<FullscreenPass>;
 
     private:
-        Buffer::Ptr _quadVertexBuffer;
-        Buffer::Ptr _quadIndexBuffer;
-
-        ShaderObject::Ptr _fpShader;
+        BufferD3D12Impl::Ptr _quadVertexBuffer;
+        BufferD3D12Impl::Ptr _quadIndexBuffer;
+        uint _numRenderTarget;
     public:
 
-        static FullscreenPass::Ptr Create(const std::string& path) {
-            FullscreenPass::Ptr fpp = std::make_shared<FullscreenPass>();
+        FullscreenPass(const std::wstring& psFileName, const std::string& passName, const std::wstring& entryPoint, ShaderModel sm, uint numRenderTarget) :
+            BaseGraphicsPass(L"fspVS.hlsl", psFileName, passName, entryPoint, sm, ShaderType::Graphics, numRenderTarget)
+        {
+            _numRenderTarget = numRenderTarget;
+            //FullscreenPass::Ptr fpp = std::make_shared<FullscreenPass>();
 
             /*fpp->_quadVertexBuffer = RenderEngine::CreateBuffer(4, sizeof(FSVertex));
             fpp->_quadIndexBuffer = RenderEngine::CreateBuffer(6, sizeof(uint));*/
-            fpp->_quadVertexBuffer = Buffer::Create(4, sizeof(FSVertex));
-            fpp->_quadIndexBuffer = Buffer::Create(6, sizeof(uint));
+            _quadVertexBuffer = Factory::CreateBuffer(4, sizeof(FSVertex));
+            _quadIndexBuffer = Factory::CreateBuffer(6, sizeof(uint));
 
 
             FSVertex ver[4] = { {0.0f, 1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 0.0f, 1.0f, 0.0f} };
             uint ind[6] = { 0, 1, 2, 0, 2, 3 };
 
-            fpp->_quadVertexBuffer->setBlob(ver, 4 * sizeof(FSVertex));
-            fpp->_quadIndexBuffer->setBlob(ind, 6 * sizeof(uint));
+            _quadVertexBuffer->SetBlob(ver, 4 * sizeof(FSVertex));
+            _quadIndexBuffer->SetBlob(ind, 6 * sizeof(uint));
 
 
-            _fpShader = ShaderObject::Create(path);
-            //_fpShader = RenderEngine::CreateShaderObject(path);
         }
 
-        void Begin() {
-            //RenderEngine::SetPipeline(name);
-            _fpShader->BindPipeline();
-        }
+        
         /*void BindCBVResource(matrix, 0) {
 
         }*/
 
-        void Execute() {
+        void Execute(RenderTargetD3D12Impl::Ptr rt) {
 
-            Falcon::RenderEngine::BindVertex();
-            Falcon::RenderEngine::BindIndex();
 
-            Falcon::RenderEngine::SetTopology(TOPOLOGY_TYPE::TRIANGLE);
+            RenderEngineD3D12Impl::Instance()->SetRenderTargets(_numRenderTarget, rt); 
 
-            Falcon::RenderEngine::Draw();
+            const float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            RenderEngineD3D12Impl::Instance()->ClearRenderTargets(_numRenderTarget, rt, clearColor);
+            
+            RenderEngineD3D12Impl::Instance()->SetViewports();
+            RenderEngineD3D12Impl::Instance()->SetScissorRects();
+            
+
+            RenderEngineD3D12Impl::Instance()->SetTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            RenderEngineD3D12Impl::Instance()->SetVertexBuffers(_quadVertexBuffer->GetVertexBufferView());
+            RenderEngineD3D12Impl::Instance()->SetIndexBuffers(_quadIndexBuffer->GetIndexBufferView());
+            RenderEngineD3D12Impl::Instance()->DrawInstanced(6, 1);
+
         }
 
         void End() {

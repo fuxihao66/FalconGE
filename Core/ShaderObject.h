@@ -1,255 +1,488 @@
+#pragma once
+#include "ShaderResourceBinding.h"
 
-enum ShaderModel {
-    SHADER_MODEL_1,
-    SHADER_MODEL_2,
-    SHADER_MODEL_3,
-    SHADER_MODEL_4,
-    SHADER_MODEL_5,
-    SHADER_MODEL_5_1,
-    SHADER_MODEL_6_0,
-    SHADER_MODEL_6_1,
-    SHADER_MODEL_6_2,
-    SHADER_MODEL_6_3,
-    SHADER_MODEL_6_4,
-    SHADER_MODEL_6_5
-};
-class ShaderObject {
-
-    ShaderResourceBinding::Ptr CreateShaderResourceBinding() {
-        // 创建srb  用户可以为一个shader创建多个srb（比如同一个管线  不同材质）
+// TODO: 需要添加lib库；并且dxc需要重新下（sdk的版本太低）
+namespace Falcon {
+    class ShaderObject {
+    protected:
+        string _shaderName;
+        vector<std::string> _srvResourceBinding;   // index是register bindpoint
+        vector<std::string> _uavResourceBinding;
+        vector<std::string> _cbvResourceBinding;
+        string _srvTableName;
+        string _uavTableName;
+        uint _space = 0;
 
 
-    }
+        int srvCount = 0;
+        int uavCount = 0;
+        int cbvCount = 0;
 
-    void CreateFromFile(std::string& fileName, ShaderModel sm) {
-        if (sm >= ShaderModel::SHADER_MODEL_6_0) {
-            CreateFromFileDXC(fileName);
-            ExtractBindingFromShaderReflDXC();
+        uint _BufferSize;
+        void* _BufferPointer;
+        ShaderType _st;
+    public:
+        using Ptr = std::shared_ptr<ShaderObject>;
+        ShaderResourceBindingD3D12Impl::Ptr CreateShaderResourceBinding() {
+            // 创建srb  用户可以为一个shader创建多个srb（比如同一个管线  不同材质）
+
+            return std::make_shared<ShaderResourceBindingD3D12Impl>(_srvTableName, _uavTableName, _srvResourceBinding, _uavResourceBinding);
         }
-        else {
-            CreateFromFileFXC(fileName);
-            ExtractBindingFromShaderReflFXC();
+
+        ShaderType GetType() {
+            return _st;
         }
-    }
-
-    void CreateFromFileFXC(std::string& filename) {
 
 
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.InputLayout = { gradientElementDescs, _countof(gradientElementDescs) };
-        psoDesc.pRootSignature = m_rootSignature.Get();
-        psoDesc.VS = CD3DX12_SHADER_BYTECODE(g_gradientVS, sizeof(g_gradientVS));
-        psoDesc.PS = CD3DX12_SHADER_BYTECODE(g_gradientPS, sizeof(g_gradientPS));
-        psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-        psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-        psoDesc.DepthStencilState.DepthEnable = FALSE;
-        psoDesc.DepthStencilState.StencilEnable = FALSE;
-        psoDesc.SampleMask = UINT_MAX;
-        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = m_intermediateRenderTargetFormat;
-        psoDesc.SampleDesc.Count = 1;
+        ShaderObject() = default;
 
-        ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineStates[GradientPSO])));
+        // TODO:  出现数组的时候怎么办，bind range？
+        ShaderObject(const std::wstring& fileName, const std::string& shaderName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st) {
+            _st = st;
+            //auto pTarget = GetPTarget(shaderType, sm);
 
-    }
-    void CreateFromFileDXC(const string& filename) {
-        /
-            // Create compiler and utils.
+            _srvResourceBinding.resize(10000);
+            _uavResourceBinding.resize(10000);
+            _cbvResourceBinding.resize(10000);
+
+            if (st == ShaderType::RayTracing) {
+                uint bufferSize;
+                auto pTarget = GetPTarget(L"lib", sm);
+                _BufferPointer = CreateFromFileDXR(fileName, pTarget, _BufferSize);
+            }
+            else if (sm >= ShaderModel::SHADER_MODEL_6_0) {
+                auto pTarget = GetPTarget(L"cs", sm);
+
+                _BufferPointer = CreateFromFileDXC(fileName, entryPoint, pTarget, _BufferSize);
+            }
+            else {
+                auto pTarget = GetPTarget(L"cs", sm);
+                _BufferPointer = CreateFromFileFXC(fileName, entryPoint, pTarget, _BufferSize);
+            }
+
+            _srvResourceBinding.resize(srvCount);
+            _uavResourceBinding.resize(uavCount);
+            _cbvResourceBinding.resize(cbvCount);
+
+            _shaderName = shaderName;
+            _srvTableName = _shaderName + "_srvTable";
+            _uavTableName = _shaderName + "_uavTable";
+
+            if (st == ShaderType::RayTracing) {
+                //RenderEngineD3D12Impl::Instance()->CreateRTPipeline(_BufferSize, _BufferPointer, _shaderName);
+            }
+            else
+                RenderEngineD3D12Impl::Instance()->CreateComputePipeline(_BufferSize, _BufferPointer, _shaderName);
+        }
+
+        
+
+        std::string GetSRVTableName() {
+            return _srvTableName;
+        }
+        std::string GetUAVTableName() {
+            return _uavTableName;
+        }
+
+        uint GetSRVTableSize(){
+            return _srvResourceBinding.size();
+        }
+
+        uint GetUAVTableSize(){
+            return _uavResourceBinding.size();
+        }
+
+        vector<std::string>& GetConstantBinding() {
+            return _cbvResourceBinding;
+        }
+
+        uint GetSpace() {
+            return _space;
+        }
+
+        template <class T>
+        void ReadFromReflection(T resource_desc, int& srvCount, int & uavCount, int& cbvCount) {
+            auto shaderVarName = resource_desc.Name;
+            auto registerSpace = resource_desc.Space;
+            auto resourceType = resource_desc.Type;
+            auto registerIndex = resource_desc.BindPoint;
+
+            /*std::cout << "var name is " << shaderVarName << std::endl;
+            std::cout << "type name is " << resourceType << std::endl;
+            std::cout << "register index is " << registerIndex << std::endl;
+            std::cout << "register space is " << registerSpace << std::endl;*/
+
+            if (resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_TBUFFER ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_TEXTURE ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_STRUCTURED ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_BYTEADDRESS ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_RTACCELERATIONSTRUCTURE) {
+                _srvResourceBinding[registerIndex] = shaderVarName;
+                srvCount++;
+
+            }
+            else if (resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_RWTYPED ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_RWSTRUCTURED ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_RWBYTEADDRESS ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_APPEND_STRUCTURED ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_CONSUME_STRUCTURED ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER ||
+                resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_UAV_FEEDBACKTEXTURE) {
+                _uavResourceBinding[registerIndex] = shaderVarName;
+                uavCount++;
+
+
+            }
+            else if (resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_CBUFFER) {
+                _cbvResourceBinding[registerIndex] = shaderVarName;
+                cbvCount++;
+
+
+
+            }
+            _space = registerSpace;
+        }
+        
+        //shaderType cs ps vs  gs lib
+        void* CreateFromFileFXC(const std::wstring& filename, const std::wstring& entryPoint, const std::wstring& pTarget, uint& shaderBufferSize) {
+            ID3DBlob* pPSBlob = nullptr;
+            ID3DBlob* pErrorBlob = nullptr;
+
+            auto strPTarget = WStr2Str(pTarget.c_str());
+            auto strEntryPoint = WStr2Str(entryPoint.c_str());
+
+
+
+
+            D3DCompileFromFile(filename.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, strEntryPoint.c_str(), strPTarget.c_str(), 0, 0, &pPSBlob, &pErrorBlob);
+
+
+
+
+            if (pErrorBlob)
+            {
+                OutputDebugStringA(reinterpret_cast<const char*>(pErrorBlob->GetBufferPointer()));
+                pErrorBlob->Release();
+            }
+
+            ID3D12ShaderReflection* pReflection = NULL;
+            D3DReflect(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), IID_ID3D12ShaderReflection, (void**)&pReflection);
+
+
+            /*std::cout << WStr2Str(filename.c_str()) << std::endl;
+            std::cout << WStr2Str(entryPoint.c_str()) << std::endl;
+            std::cout << WStr2Str(pTarget.c_str()) << std::endl;*/
             //
-            CComPtr<IDxcUtils> pUtils;
-        CComPtr<IDxcCompiler3> pCompiler;
-        DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
-        DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
-
-        //
-        // Create default include handler. (You can create your own...)
-        //
-        CComPtr<IDxcIncludeHandler> pIncludeHandler;
-        pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+            //RenderEngineD3D12Impl::Instance()->CreatePipeline(pPSBlob->GetBufferSize(), pPSBlob->GetBufferPointer(), _shaderName);
+            //
+            shaderBufferSize = pPSBlob->GetBufferSize();
+            void* bufferPointer = pPSBlob->GetBufferPointer();
 
 
-        //
-        // COMMAND LINE: dxc myshader.hlsl -E main -T ps_6_0 -Zi -D MYDEFINE=1 -Fo myshader.bin -Fd myshader.pdb -Qstrip_reflect
-        //
-        LPCWSTR pszArgs[] =
-        {
-            L"myshader.hlsl",            // Optional shader source file name for error reporting and for PIX shader source view.  
-            L"-E", L"main",              // Entry point.
-            L"-T", L"ps_6_0",            // Target.
-            L"-Zi",                      // Enable debug information.
-            L"-D", L"MYDEFINE=1",        // A single define.
-            L"-Fo", L"myshader.bin",     // Optional. Stored in the pdb. 
-            L"-Fd", L"myshader.pdb",     // The file name of the pdb. This must either be supplied or the autogenerated file name must be used.
-            L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
-        };
+            D3D12_SHADER_DESC shader_desc;
+            pReflection->GetDesc(&shader_desc);
 
 
-        //
-        // Open source file.  
-        //
-        CComPtr<IDxcBlobEncoding> pSource = nullptr;
-        pUtils->LoadFile(L"myshader.hlsl", nullptr, &pSource);
-        DxcBuffer Source;
-        Source.Ptr = pSource->GetBufferPointer();
-        Source.Size = pSource->GetBufferSize();
-        Source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
-
-
-        //
-        // Compile it with specified arguments.
-        //
-        CComPtr<IDxcResult> pResults;
-        pCompiler->Compile(
-            &Source,                // Source buffer.
-            pszArgs,                // Array of pointers to arguments.
-            _countof(pszArgs),      // Number of arguments.
-            pIncludeHandler,        // User-provided interface to handle #include directives (optional).
-            IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
-        );
-
-        //
-        // Print errors if present.
-        //
-        CComPtr<IDxcBlobUtf8> pErrors = nullptr;
-        pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
-        // Note that d3dcompiler would return null if no errors or warnings are present.  
-        // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
-        if (pErrors != nullptr && pErrors->GetStringLength() != 0)
-            wprintf(L"Warnings and Errors:\n%S\n", pErrors->GetStringPointer());
-
-        //
-        // Quit if the compilation failed.
-        //
-        HRESULT hrStatus;
-        pResults->GetStatus(&hrStatus);
-        if (FAILED(hrStatus))
-        {
-            wprintf(L"Compilation Failed\n");
-            return 1;
-        }
-
-        //
-        // Save shader binary.
-        //
-        CComPtr<IDxcBlob> pShader = nullptr;
-        CComPtr<IDxcBlobUtf16> pShaderName = nullptr;
-        pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), &pShaderName);
-        if (pShader != nullptr)
-        {
             
 
-            D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-            // (...)
-            // TODO: IDxcBlob.GetBufferPointer来得到byteCode
-            psoDesc.PS.BytecodeLength = pShader->GetBufferSize();
-            psoDesc.PS.pShaderBytecode = pShader->GetBufferPointer();
-            CComPtr<ID3D12PipelineState> pso;
-            hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso));
+            for (int i = 0; i < shader_desc.BoundResources; i++)
+            {
+                D3D12_SHADER_INPUT_BIND_DESC  resource_desc;
+                pReflection->GetResourceBindingDesc(i, &resource_desc);
+
+                ReadFromReflection(resource_desc, srvCount, uavCount, cbvCount);
+
+
+            }
+
+
+            
+
+            return bufferPointer;
         }
 
-        ////
-        //// Save pdb.
-        ////
-        //CComPtr<IDxcBlob> pPDB = nullptr;
-        //CComPtr<IDxcBlobUtf16> pPDBName = nullptr;
-        //pResults->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPDB), &pPDBName);
-        //{
-        //    FILE* fp = NULL;
 
-        //    // Note that if you don't specify -Fd, a pdb name will be automatically generated. Use this file name to save the pdb so that PIX can find it quickly.
-        //    _wfopen_s(&fp, pPDBName->GetStringPointer(), L"wb");
-        //    fwrite(pPDB->GetBufferPointer(), pPDB->GetBufferSize(), 1, fp);
-        //    fclose(fp);
-        //}
+        // TODO: 反射不同   暂时未实现
+        void* CreateFromFileDXR(const std::wstring& filename, const std::wstring& pTarget, uint& shaderBufferSize) {
+            CComPtr<IDxcUtils> pUtils;
+            CComPtr<IDxcCompiler3> pCompiler;
+            DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
+            DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
 
-        ////
-        //// Print hash.
-        ////
-        //CComPtr<IDxcBlob> pHash = nullptr;
-        //pResults->GetOutput(DXC_OUT_SHADER_HASH, IID_PPV_ARGS(&pHash), nullptr);
-        //if (pHash != nullptr)
-        //{
-        //    wprintf(L"Hash: ");
-        //    DxcShaderHash* pHashBuf = (DxcShaderHash*)pHash->GetBufferPointer();
-        //    for (int i = 0; i < _countof(pHashBuf->HashDigest); i++)
-        //        wprintf(L"%x", pHashBuf->HashDigest[i]);
-        //    wprintf(L"\n");
-        //}
+            //
+            // Create default include handler. (You can create your own...)
+            //
+            CComPtr<IDxcIncludeHandler> pIncludeHandler;
+            pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
 
-    }
-private:
-    void ExtractBindingFromShaderReflDXC() {
 
-        CComPtr<IDxcBlob> pReflectionData;
-        pResults->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionData), nullptr);
-        if (pReflectionData != nullptr)
-        {
-            // Optionally, save reflection blob for later here.
+            //
+            // COMMAND LINE: dxc myshader.hlsl -E main -T ps_6_0 -Zi -D MYDEFINE=1 -Fo myshader.bin -Fd myshader.pdb -Qstrip_reflect
+            //
+            LPCWSTR pszArgs[] =
+            {
+                filename.c_str(),            // Optional shader source file name for error reporting and for PIX shader source view.  
+                //L"-E", L"main",              // Entry point.
+                //L"-T", L"lib_6_3",            // Target.
+                L"-T", pTarget.c_str(),            // Target.
+                L"-Zi",                      // Enable debug information.
+                L"-D", L"MYDEFINE=1",        // A single define.
+                L"-Fo", L"myshader.bin",     // Optional. Stored in the pdb. 
+                L"-Fd", L"myshader.pdb",     // The file name of the pdb. This must either be supplied or the autogenerated file name must be used.
+                L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
+            };
 
-            // Create reflection interface.
-            DxcBuffer ReflectionData;
-            ReflectionData.Encoding = DXC_CP_ACP;
-            ReflectionData.Ptr = pReflectionData->GetBufferPointer();
-            ReflectionData.Size = pReflectionData->GetBufferSize();
+
+            //
+            // Open source file.  
+            //
+            CComPtr<IDxcBlobEncoding> pSource = nullptr;
+            pUtils->LoadFile(filename.c_str(), nullptr, &pSource);
+            DxcBuffer Source;
+            Source.Ptr = pSource->GetBufferPointer();
+            Source.Size = pSource->GetBufferSize();
+            Source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
+
+
+            //
+            // Compile it with specified arguments.
+            //
+            CComPtr<IDxcResult> pResults;
+            pCompiler->Compile(
+                &Source,                // Source buffer.
+                pszArgs,                // Array of pointers to arguments.
+                _countof(pszArgs),      // Number of arguments.
+                pIncludeHandler,        // User-provided interface to handle #include directives (optional).
+                IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
+            );
+
+            //
+            // Print errors if present.
+            //
+            CComPtr<IDxcBlobUtf8> pErrors = nullptr;
+            pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
+            // Note that d3dcompiler would return null if no errors or warnings are present.  
+            // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
+            if (pErrors != nullptr && pErrors->GetStringLength() != 0)
+                wprintf(L"Warnings and Errors:\n%S\n", pErrors->GetStringPointer());
+
+            //
+            // Quit if the compilation failed.
+            //
+            HRESULT hrStatus;
+            pResults->GetStatus(&hrStatus);
+            if (FAILED(hrStatus))
+            {
+                wprintf(L"Compilation Failed\n");
+                return false;
+            }
+
+            //
+            // Save shader binary.
+            //
+            CComPtr<IDxcBlob> pShader = nullptr;
+            CComPtr<IDxcBlobUtf16> pShaderName = nullptr;
+            pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), &pShaderName);
+            void* bufferPointer = nullptr;
+            if (pShader != nullptr)
+            {
+                //RenderEngineD3D12Impl::Instance()->CreateRTPipeline(pShader->GetBufferSize(), pShader->GetBufferPointer(), _shaderName);
+                shaderBufferSize = pShader->GetBufferSize();
+                bufferPointer = pShader->GetBufferPointer();
+            }
+
+            // reflection
+            CComPtr< ID3D12LibraryReflection > pReflection;  // 需要用不同的reflection
+
+
+            CComPtr<IDxcBlob> pReflectionData;
+            pResults->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionData), nullptr);
+            if (pReflectionData != nullptr)
+            {
+                // Optionally, save reflection blob for later here.
+
+                // Create reflection interface.
+                DxcBuffer ReflectionData;
+                ReflectionData.Encoding = DXC_CP_ACP;
+                ReflectionData.Ptr = pReflectionData->GetBufferPointer();
+                ReflectionData.Size = pReflectionData->GetBufferSize();
+
+                pUtils->CreateReflection(&ReflectionData, IID_PPV_ARGS(&pReflection));
+
+                // Use reflection interface here.
+
+            }
+
+
+            D3D12_LIBRARY_DESC libdesc;
+
+            pReflection->GetDesc(&libdesc);
+
+            
+
+            for (auto i = 0; i < libdesc.FunctionCount; i++) {
+                // 先hit miss 最后 raygen
+                auto functionReflect = pReflection->GetFunctionByIndex(i);
+
+                D3D12_FUNCTION_DESC  shader_desc;
+                functionReflect->GetDesc(&shader_desc);
+
+
+                for (int i = 0; i < shader_desc.BoundResources; i++)
+                {
+                    D3D12_SHADER_INPUT_BIND_DESC  resource_desc;
+                    functionReflect->GetResourceBindingDesc(i, &resource_desc);
+
+
+                    ReadFromReflection(resource_desc, srvCount, uavCount, cbvCount);
+                }
+            }
+
+            
+
+            return bufferPointer;
+
+        }
+        void* CreateFromFileDXC(const std::wstring& filename, const std::wstring& entryPoint, const std::wstring& pTarget, uint& shaderBufferSize) {
+
+            CComPtr<IDxcUtils> pUtils;
+            CComPtr<IDxcCompiler3> pCompiler;
+            DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils));
+            DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler));
+
+            //
+            // Create default include handler. (You can create your own...)
+            //
+            CComPtr<IDxcIncludeHandler> pIncludeHandler;
+            pUtils->CreateDefaultIncludeHandler(&pIncludeHandler);
+
+            /*std::cout << WStr2Str(filename.c_str()) << std::endl;
+            std::cout << WStr2Str(entryPoint.c_str()) << std::endl;
+            std::cout << WStr2Str(pTarget.c_str()) << std::endl;*/
+
+            //
+            // COMMAND LINE: dxc myshader.hlsl -E main -T ps_6_0 -Zi -D MYDEFINE=1 -Fo myshader.bin -Fd myshader.pdb -Qstrip_reflect
+            //
+            LPCWSTR pszArgs[] =
+            {
+                filename.c_str(),            // Optional shader source file name for error reporting and for PIX shader source view.  
+                //L"-E", L"main",              // Entry point.
+                //L"-T", L"ps_6_0",            // Target.
+                L"-E", entryPoint.c_str(),              // Entry point.
+                L"-T", pTarget.c_str(),            // Target.
+                L"-Zi",                      // Enable debug information.
+                L"-D", L"MYDEFINE=1",        // A single define.
+                L"-Fo", L"myshader.bin",     // Optional. Stored in the pdb. 
+                L"-Fd", L"myshader.pdb",     // The file name of the pdb. This must either be supplied or the autogenerated file name must be used.
+                L"-Qstrip_reflect",          // Strip reflection into a separate blob. 
+            };
+
+
+            //
+            // Open source file.  
+            //
+            CComPtr<IDxcBlobEncoding> pSource = nullptr;
+            pUtils->LoadFile(filename.c_str(), nullptr, &pSource);
+            DxcBuffer Source;
+            Source.Ptr = pSource->GetBufferPointer();
+            Source.Size = pSource->GetBufferSize();
+            Source.Encoding = DXC_CP_ACP; // Assume BOM says UTF8 or UTF16 or this is ANSI text.
+
+
+            //
+            // Compile it with specified arguments.
+            //
+            CComPtr<IDxcResult> pResults;
+            pCompiler->Compile(
+                &Source,                // Source buffer.
+                pszArgs,                // Array of pointers to arguments.
+                _countof(pszArgs),      // Number of arguments.
+                pIncludeHandler,        // User-provided interface to handle #include directives (optional).
+                IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
+            );
+
+            //
+            // Print errors if present.
+            //
+            CComPtr<IDxcBlobUtf8> pErrors = nullptr;
+            pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
+            // Note that d3dcompiler would return null if no errors or warnings are present.  
+            // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
+            if (pErrors != nullptr && pErrors->GetStringLength() != 0)
+                wprintf(L"Warnings and Errors:\n%S\n", pErrors->GetStringPointer());
+
+            //
+            // Quit if the compilation failed.
+            //
+            HRESULT hrStatus;
+            pResults->GetStatus(&hrStatus);
+            if (FAILED(hrStatus))
+            {
+                wprintf(L"Compilation Failed\n");
+                return false;
+            }
+
+            //
+            // Save shader binary.
+            //
+            CComPtr<IDxcBlob> pShader = nullptr;
+            CComPtr<IDxcBlobUtf16> pShaderName = nullptr;
+            pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), &pShaderName);
+
+            void* bufferPointer = nullptr;
+
+            if (pShader != nullptr)
+            {
+                //RenderEngineD3D12Impl::Instance()->CreateComputePipeline(pShader->GetBufferSize(), pShader->GetBufferPointer(), _shaderName);
+                shaderBufferSize = pShader->GetBufferSize();
+                bufferPointer = pShader->GetBufferPointer();
+            }
 
             CComPtr< ID3D12ShaderReflection > pReflection;
-            pUtils->CreateReflection(&ReflectionData, IID_PPV_ARGS(&pReflection));
 
-            // Use reflection interface here.
+            CComPtr<IDxcBlob> pReflectionData;
+            pResults->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionData), nullptr);
+            if (pReflectionData != nullptr)
+            {
+                // Optionally, save reflection blob for later here.
+
+                // Create reflection interface.
+                DxcBuffer ReflectionData;
+                ReflectionData.Encoding = DXC_CP_ACP;
+                ReflectionData.Ptr = pReflectionData->GetBufferPointer();
+                ReflectionData.Size = pReflectionData->GetBufferSize();
+
+                pUtils->CreateReflection(&ReflectionData, IID_PPV_ARGS(&pReflection));
+
+                // Use reflection interface here.
+
+            }
+
+            
+            D3D12_SHADER_DESC shader_desc;
+            pReflection->GetDesc(&shader_desc);
+
+            for (int i = 0; i < shader_desc.BoundResources; i++)
+            {
+                D3D12_SHADER_INPUT_BIND_DESC  resource_desc;
+                pReflection->GetResourceBindingDesc(i, &resource_desc);
+
+
+                ReadFromReflection(resource_desc, srvCount, uavCount, cbvCount);
+
+
+
+
+            }
+
+
+            
+
+
+            return bufferPointer;
 
         }
-
-        D3D12_SHADER_DESC shader_desc;
-        pReflection->GetDesc(&shader_desc);
-
-        for (int i = 0; i < shader_desc.BoundResources; i++)
-        {
-            D3D12_SHADER_INPUT_BIND_DESC  resource_desc;
-            pPixelShaderReflection->GetResourceBindingDesc(i, &resource_desc);
         
-        
-            auto shaderName = resource_desc.Name;
-            auto registerSpace = resource_desc.space;
-            auto resourceType = resource_desc.Type;
-            auto registerIndex = resource_desc.BindPoint;
-        }
-    
-    }
-    void ExtractBindingFromShaderReflFXC() {
 
-        ID3DBlob* pPSBlob = nullptr;
-        ID3DBlob* pErrorBlob = nullptr;
-
-        D3DCall(D3DCompileFromFile(filename.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PS", "ps_5_0", dwShaderFlags, 0, &pPSBlob, &pErrorBlob));
-        if (pErrorBlob)
-        {
-            OutputDebugStringA(reinterpret_cast<const char*>(pErrorBlob->GetBufferPointer()));
-            pErrorBlob->Release();
-        }
-
-        ID3D12ShaderReflection* pReflection = NULL;
-        D3DCall(D3DReflect(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)&pReflection));
-
-
-
-
-
-        D3D12_SHADER_DESC shader_desc;
-        pReflection->GetDesc(&shader_desc);
-
-        for (int i = 0; i < shader_desc.BoundResources; i++)
-        {
-            D3D12_SHADER_INPUT_BIND_DESC  resource_desc;
-            pPixelShaderReflection->GetResourceBindingDesc(i, &resource_desc);
-
-
-            auto shaderName = resource_desc.Name;
-            auto registerSpace = resource_desc.space;
-            auto resourceType = resource_desc.Type;
-            auto registerIndex = resource_desc.BindPoint;
-        }
-
-    }
-    
-};
+    };
+}
