@@ -137,10 +137,11 @@ namespace Falcon {
 
 
 		uint currBinding = -1;
+		uint 
 		uint currRSUsabeIndex = 0;
 		std::vector< ComPtr<ID3D12RootSignature>> _mRootSignatures;
 		//std::vector<std::map<std::string, int>> shaderVarNameToRootSignatureSlot;
-		std::vector<std::map<std::string, int>> bindingNameToRootSignatureSlot;
+		std::vector<std::map<std::string, int>> bindingNameToRootSignatureSlot;            // 把绑定名映射到slot  对于const和scene  绑定名是变量名+shader名；对于srv和uav  绑定名是shader名+uav/srv
 		std::vector<std::map<std::string, ResourceState>> shaderVarNameToBindingState;
 
 		/*
@@ -210,7 +211,7 @@ namespace Falcon {
 		virtual void FreeResources();
 		virtual void Present();
 		virtual void SetBindingID(uint rsid);
-		bool BuildRootSignature(std::vector<ShaderObject::Ptr>& ShaderObjs);
+		bool BuildRootSignature(const std::vector<ShaderObject::Ptr>& ShaderObjs);
 		bool BindConstantToComputePipeline(const std::string& constVarName, ResourceD3D12Impl::Ptr resource);
 		bool BindConstantToGraphicsPipeline(const std::string& constVarName, ResourceD3D12Impl::Ptr resource);
 		void BindResourceBindingToComputePipeline(ShaderResourceBindingD3D12Impl::Ptr srb);

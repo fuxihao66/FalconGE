@@ -11,6 +11,7 @@ namespace Falcon {
         uint _vsBufferSize;
         uint _psBufferSize;
         uint _gsBufferSize;
+        uint _numRenderTarget;
     public:
         
         ShaderObjectVsPs() = default;
@@ -54,11 +55,16 @@ namespace Falcon {
             _uavTableName = _shaderName + "_uavTable";
 
 
-            RenderEngineD3D12Impl::Instance()->CreateGraphicsPipeline(_shaderName, _vsBufferSize, _vsBufferPointer, _psBufferSize, _psBufferPointer, numRenderTarget);
+            // RenderEngineD3D12Impl::Instance()->CreateGraphicsPipeline(_shaderName, _vsBufferSize, _vsBufferPointer, _psBufferSize, _psBufferPointer, numRenderTarget);
+            _numRenderTarget = numRenderTarget;
         }
 
 
         
+        void CreatePipelineStateObject(){
+            RenderEngineD3D12Impl::Instance()->CreateGraphicsPipeline(_shaderName, _vsBufferSize, _vsBufferPointer, _psBufferSize, _psBufferPointer, _numRenderTarget);
+
+        }
 
     };
 }

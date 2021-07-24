@@ -61,12 +61,20 @@ protected:
 
     virtual void Initialize() {
         for (auto pass : _passMap) {
-            pass.second->Initialize(); // 资源绑定等操作
+            pass.second->Initialize(); // shader编译 资源绑定等操作
         }
 
+        // 创建root signature和pipeline state
         Falcon::RenderEngineD3D12Impl::Instance()->ReserveRootSignature(_passMap.size());
         for (auto pass : _passMap) {
+            pass.second->RenderPassBegin();// 绑定root signature index
             Falcon::RenderEngineD3D12Impl::Instance()->BuildRootSignature(pass.second->GetShaderObjs()); // 构建root signature
+
+            // 创建完root signature之后再创建管线
+            Falcon::RenderEngineD3D12Impl::Instance()->CreatePipelineState(pass.second->GetShaderObjs());
+
+            pass.second->RenderPassEnd();
+
         }
 
     }

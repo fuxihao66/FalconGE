@@ -21,6 +21,7 @@ LTCApp::LTCApp(int w, int h) : AppFramework(w,h)
 
 }
 
+// TODO: 需要在最后调用AppFramework的Initialize 来进行
 void LTCApp::Initialize() {
 
     auto pScene = Falcon::LoadScene("xx.fscene");
@@ -31,9 +32,18 @@ void LTCApp::Initialize() {
     // _passMap["ltcPass"] = Falcon::LTCPass::Create();   // 这个pass包括所有东西,ltc shadow
     // _passMap["svgfPass"] = Falcon::SVGFPass::Create();
     auto shadingPass = std::make_shared<Falcon::SimpleShadingPass>();
+    // auto shadowPass = std::make_shared<Falcon::ShadowRTPass>();
+    // auto unshadowPass = std::make_shared<Falcon::UnshadowRTPass>();
+    // auto ltcPass = std::make_shared<Falcon::LTCPass>();
 
      
     gbufferPass->SetScene(pScene);
+
+
+
+    ltcPass->SetAreaLightInfo(pScene->GetAreaLight());
+    shadowPass->SetAreaLightInfo(pScene->GetAreaLight());
+    unshadowPass->SetAreaLightInfo(pScene->GetAreaLight());
 
     Falcon::RenderEngineD3D12Impl::Instance()->BindInput(shadingPass->kMotionVec, gbufferPass->kMotionVec);   // output input   map<string, string> 当前pass变量名称<-> 全局的resource map的key 
     Falcon::RenderEngineD3D12Impl::Instance()->BindInput(shadingPass->kNormal, gbufferPass->kNormal);

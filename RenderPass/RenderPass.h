@@ -29,7 +29,8 @@ namespace Falcon{
             _rsId = RenderEngineD3D12Impl::Instance()->GeneratePossibleRSIndex();
         }
 
-    protected:
+    public:
+    // 所有的操作前都要
         void RenderPassBegin() {
             RenderEngineD3D12Impl::Instance()->SetBindingID(_rsId);
         }

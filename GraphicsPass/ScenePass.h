@@ -12,46 +12,26 @@ enum TOPOLOGY_TYPE{
 
 namespace Falcon {
 
-    //class ScenePass : public BaseGraphicsPass {
-    //    // vertex buffer
+    class ScenePass {
+        // vertex buffer
 
+    protected:
+        const std::string _passName;
+        ShaderObject::Ptr _shaderObj;
+    public:
+        // shaderType : "ps"  "vs" "gs" "cs" "lib"
+        ScenePass(const std::wstring& vsFileName, const std::wstring& psFileName, const std::string& passName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st, uint numRenderTarget) : _passName(passName){
+            _shaderObj = std::make_shared<ShaderObjectVsPs>(vsFileName, psFileName,  passName, entryPoint, sm, st, numRenderTarget);
+            //Initialize();
+        }
 
-    //    static ScenePass::Ptr Create(const std::string& path) {
+        virtual void Initialize() {
 
+        }
+        void Begin() {
+            RenderEngineD3D12Impl::Instance()->SetPipeline(_passName);
+        }
 
-
-    //    }
-
-    //    void Begin() {
-    //        Falcon::RenderEngine::Instance()->BindInputSetPipeline(name);
-    //    }
-    //    void BindCBVResource(matrix, 0) {
-
-    //    }
-
-    //    ShaderObject::Ptr GetShaderObject() {
-    //        return _shaderObj;
-    //    }
-
-    //    void Execute() {
-
-    //        Falcon::RenderEngine::Instance()->BindInputBindVertex();
-    //        Falcon::RenderEngine::Instance()->BindInputBindIndex();
-
-    //        Falcon::RenderEngine::Instance()->BindInputSetTopology(TOPOLOGY_TYPE::TRIANGLE);
-
-    //        Falcon::RenderEngine::Instance()->BindInputDraw();
-
-
-    //        //CD3DX12_CPU_DESCRIPTOR_HANDLE intermediateRtv(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), renderTargetPtr->GetRTVDescriptor(), m_rtvDescriptorSize);
-    //        //m_commandList->OMSetRenderTargets(1, &intermediateRtv, FALSE, nullptr);
-
-    //        //// const float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    //        //m_commandList->ClearRenderTargetView(intermediateRtv, renderTargetPtr->clearColor(), 0, nullptr);
-
-
-    //        //m_commandList->IASetVertexBuffers(0, 1, &m_gradientVertexBufferView);
-    //        //m_commandList->DrawInstanced(4, 1, 0, 0);
-    //    }
-    //};
+        
+    };
 }

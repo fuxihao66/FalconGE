@@ -112,7 +112,8 @@ namespace Falcon {
     };
     class Scene {
         //  提供最基本的接口 进行mesh的渲染
-        // 同时提供接口来获取scene中所有mesh的buffer（可以用于rt等情景中）
+        // 提供一个完整的vertex buffer和indices buffer
+        // 每个mesh渲染的时候，通过offset来得到对应的vertex buffer和indices buffer的handle
     private:
         Camera::Ptr _camera;
         uint _numMeshInstance;
@@ -125,6 +126,10 @@ namespace Falcon {
         /*VertexBuffer::Ptr GetVertexBuffer();
         IndexBuffer::Ptr GetIndexBuffer();*/
         ShaderObject::Ptr _shaderObj;
+        string _passName;
+
+
+        ResourceD3D12Impl::Ptr _as;
     public:
         using Ptr = shared_ptr<Scene>;
         
@@ -135,6 +140,12 @@ namespace Falcon {
 
         }
         
+        ResourceD3D12Impl::Ptr GetAccelerationStruct(){
+            return _as;
+        }
+
+
+
         void BuildAccelerationStructures()
         {
             //auto device = m_deviceResources->GetD3DDevice();
@@ -243,6 +254,8 @@ namespace Falcon {
             //m_deviceResources->WaitForGpu();
         }
         void CreatePassFromFile(const std::string& vsFilename, const std::string& psFileName, const std::string& passName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st, uint numRenderTarget) {
+
+            _passName = passName;
             // 传统
             _shaderObj = std::make_shared<ShaderObjectVsPs>(vsFilename, psFileName, passName, entryPoint, sm, st, numRenderTarget);
 
@@ -292,6 +305,11 @@ namespace Falcon {
 
         // rt 资源创建等
         void RenderScene(uint numAttachments, RenderTargetD3D12Impl::Ptr Fbo) {
+
+            RenderEngineD3D12Impl::Instance()->SetPipeline(_passName);
+
+
+
             auto tempMat = XMMatrixMultiply(_camera->GetViewMat(), _camera->GetProjMat());
             _viewProjResource->SetBlob(&tempMat, sizeof(tempMat));
             for (uint32_t i = 0; i < _numMeshInstance; i++)
@@ -304,8 +322,8 @@ namespace Falcon {
 
                 RenderEngineD3D12Impl::Instance()->BindResourceBindingToGraphicsPipeline(mat->GetResourceBinding());
 
-                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gModelMat", _modelResource);// 只有mvp矩阵   不支持其他的
-                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gViewProjMat", _viewProjResource);// 只有mvp矩阵   不支持其他的
+                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gModelMat_"+_shaderObj->GetShaderName(), _modelResource);// 只有mvp矩阵   不支持其他的
+                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gViewProjMat_"+_shaderObj->GetShaderName(), _viewProjResource);// 只有mvp矩阵   不支持其他的
 
 
 

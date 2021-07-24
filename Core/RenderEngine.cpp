@@ -86,6 +86,13 @@ namespace Falcon {
 		_currAvailableUAVDescriptorIndex++;
 	}
 
+
+	void RenderEngineD3D12Impl::CreatePipelineState(vector<ShaderObject>& shaders){
+		for (auto & sh: shaders){
+			sh.CreatePipelineStateObject();
+		}
+	}
+
 	//void RenderEngineD3D12Impl::CreateRTPipeline() {}
 	void RenderEngineD3D12Impl::CreateComputePipeline(uint bufferSize, void* bufferPointer, const string& pipelineName) {
 		D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
@@ -93,6 +100,44 @@ namespace Falcon {
 		psoDesc.CS = CD3DX12_SHADER_BYTECODE(bufferPointer, bufferSize);
 
 		_device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&_pipelineStates[pipelineName]));
+	}
+
+	// TODO: RT的管线和其他的不同
+	void RenderEgineD3D12Impl::CreateRTPipeline(uint bufferSize, void* bufferPointer, const string& rtPipelineName, uint maxRecursion){
+		
+		// Ambient Occlusion state object.
+		{
+			CD3DX12_STATE_OBJECT_DESC raytracingPipeline{ D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE };
+
+			auto lib = raytracingPipeline.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+			D3D12_SHADER_BYTECODE libdxil = CD3DX12_SHADER_BYTECODE(bufferPointer, bufferSize);
+			lib->SetDXILLibrary(&libdxil);
+
+			auto hitGroup = raytracingPipeline.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+
+			hitGroup->SetClosestHitShaderImport(c_closestHitShaderName);
+			hitGroup->SetHitGroupExport(c_hitGroupName);
+			hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
+
+
+			auto shaderConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
+			UINT payloadSize = static_cast<UINT>(0xFFFFFF);	
+			// UINT attributeSize = sizeof(XMFLOAT2);  // float2 barycentrics
+			UINT attributeSize = 0xFFFFFF;
+			shaderConfig->Config(payloadSize, attributeSize);
+
+
+
+			auto globalRootSignature = raytracingPipeline.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+			globalRootSignature->SetRootSignature(_mRootSignatures[currBinding].Get());
+			// 这个
+
+			auto pipelineConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+			pipelineConfig->Config(maxRecursion);
+
+			// Create the state object.
+			_device->CreateStateObject(raytracingPipeline, IID_PPV_ARGS(&_rtPipelineStates[rtPipelineName]));
+		}
 	}
 	void RenderEngineD3D12Impl::CreateGraphicsPipeline(const string& pipelineName, uint vsBufferSize, void* vsBufferPointer, uint psBufferSize, void* psBufferPointer, uint numRenderTarget, uint gsBufferSize, void* gsBufferPointer) {
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -143,13 +188,22 @@ namespace Falcon {
 	void RenderEngineD3D12Impl::SetPipeline(const std::string& pipelineName) {
 		_d3dCommandList->SetPipelineState(_pipelineStates[pipelineName].Get());
 	}
+
+	void RenderEngineD3D12Impl::SetRTPipeline(const std::string& rtPipelineName){
+		_d3dCommandList->SetPipelineState1(_rtPipelineStates[pipelineName].Get());
+
+	}
+
 	void RenderEngineD3D12Impl::SetBindingID(uint rsid) {
 		if (rsid == -1) {
 			currBinding = -1;
 		}
 		else {
+			// TODO: 是否可以同时绑定两个root signature
 			currBinding = rsid;
 			_d3dCommandList->SetGraphicsRootSignature(_mRootSignatures[rsid].Get());
+			_d3dCommandList->SetComputeRootSignature(_mRootSignatures[rsid].Get());
+
 		}
 
 	}
@@ -203,13 +257,31 @@ namespace Falcon {
 
 	}
 
+	void RenderEngineD3D12Impl::DispatchCompute(uint3 dispatchDim){
+		_d3dCommandList->Dispatch(dispatchDim);
+	}
+
+	void RenderEngineD3D12Impl::DispatchRayTrace(uint3 dispatchDim, D3D12_DISPATCH_RAYS_DESC* dispatchDesc){
+		// auto resourceStateTracker = m_deviceResources->GetGpuResourceStateTracker();
+		// auto frameIndex = m_deviceResources->GetCurrentFrameIndex();
+
+
+		
+
+		resourceStateTracker->FlushResourceBarriers();///  TODO:
+		_d3dCommandList->DispatchRays(dispatchDesc);
+	}
+
+
 	void RenderEngineD3D12Impl::ReserveRootSignature(uint size) {
 		_mRootSignatures.resize(size);
 	}
 
+	
+
 	// 通过shader反射的结果来构建root signature
 	//https://docs.microsoft.com/en-us/windows/win32/api/d3d12shader/nn-d3d12shader-id3d12shaderreflection  
-	bool RenderEngineD3D12Impl::BuildRootSignature(std::vector<ShaderObject::Ptr>& ShaderObjs) {
+	bool RenderEngineD3D12Impl::BuildRootSignature(const std::vector<ShaderObject::Ptr>& ShaderObjs) {
 		// 每个space 每种类型一个parameter
 
 		auto numOfShader = ShaderObjs.size();
@@ -250,11 +322,23 @@ namespace Falcon {
 				// for constant
 				CD3DX12_ROOT_PARAMETER constPara;
 				constPara.InitAsConstantBufferView(registerIndex++, shaderObject->GetSpace());
+				rootParameters.push_back(constPara);
+
 
 				bindingNameToRootSignatureSlot[currBinding][shaderObject->GetConstantBinding()[bindPoint]] = slotIndex++;
 
 			}
 			
+			// TODO: 有必要单独拆出来吗？？？？ 和texture之类一样 用descriptor来间接绑定应该也可以？
+			auto ASBindPoint = shaderObject->GetASBindPoint();
+			if (ASBindPoint != -1){
+
+				CD3DX12_ROOT_PARAMETER asPara;
+				asPara.InitAsShaderResourceView(srvTableSize, shaderObject->GetSpace());
+				rootParameters.push_back(asPara);
+
+				bindingNameToRootSignatureSlot[currBinding]["gScene_"+shaderObject->GetShaderName()] = slotIndex++;
+			}
 
 		}
 
@@ -281,8 +365,23 @@ namespace Falcon {
 	}
 
 
+	// TODO: BindAccelerationStructToPipeline和BindConstantToComputePipeline的参数是bindingNameToRootSignatureSlot中的索引名称（变量名+shaderName）
+	bool RenderEngineD3D12Impl::BindAccelerationStructToPipeline(const std::string& ASIndexingName, ResourceD3D12Impl::Ptr resource) {
+		if (currBinding == -1)
+			return false;
 
-	bool RenderEngineD3D12Impl::BindConstantToComputePipeline(const std::string& constVarName, ResourceD3D12Impl::Ptr resource) {
+		//ResourceState targetRS = shaderVarNameToBindingState[currBinding][constVarName];
+
+		if ( != resource->GetCurrentState()) {
+			// barrier
+
+			resource->SetState();
+		}
+		_d3dCommandList->SetComputeRootShaderResourceView(bindingNameToRootSignatureSlot[currBinding][ASIndexingName], resource->GetResourcePointer()->GetGPUVirtualAddress());
+
+		return true;
+	}
+	bool RenderEngineD3D12Impl::BindConstantToComputePipeline(const std::string& constVarIndexingName, ResourceD3D12Impl::Ptr resource) {
 		if (currBinding == -1)
 			return false;
 
@@ -293,7 +392,7 @@ namespace Falcon {
 
 			resource->SetState(D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 		}
-		_d3dCommandList->SetComputeRootConstantBufferView(bindingNameToRootSignatureSlot[currBinding][constVarName], resource->GetResourcePointer()->GetGPUVirtualAddress());
+		_d3dCommandList->SetComputeRootConstantBufferView(bindingNameToRootSignatureSlot[currBinding][constVarIndexingName], resource->GetResourcePointer()->GetGPUVirtualAddress());
 
 		return true;
 	}
@@ -303,7 +402,7 @@ namespace Falcon {
 
 
 
-	bool RenderEngineD3D12Impl::BindConstantToGraphicsPipeline(const std::string& constVarName, ResourceD3D12Impl::Ptr resource) {
+	bool RenderEngineD3D12Impl::BindConstantToGraphicsPipeline(const std::string& constVarIndexingName, ResourceD3D12Impl::Ptr resource) {
 		if (currBinding == -1)
 			return false;
 
@@ -314,7 +413,7 @@ namespace Falcon {
 
 			resource->SetState(D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 		}
-		_d3dCommandList->SetGraphicsRootConstantBufferView(bindingNameToRootSignatureSlot[currBinding][constVarName], resource->GetResourcePointer()->GetGPUVirtualAddress());
+		_d3dCommandList->SetGraphicsRootConstantBufferView(bindingNameToRootSignatureSlot[currBinding][constVarIndexingName], resource->GetResourcePointer()->GetGPUVirtualAddress());
 
 		return true;
 	}
@@ -349,6 +448,9 @@ namespace Falcon {
 	//	return true;
 	//}
 	*/
+
+
+	
 
 	void RenderEngineD3D12Impl::BindResourceBindingToComputePipeline(ShaderResourceBindingD3D12Impl::Ptr srb) {
 		// 判断root signature

@@ -1,0 +1,88 @@
+#version 460
+#extension GL_NV_ray_tracing : require
+#extension GL_GOOGLE_include_directive : enable
+#include "raycommon.glsl"
+
+layout(binding = 0, set = 0) uniform accelerationStructureNV topLevelAS;
+layout(binding = 1, set = 0, rgba32f) uniform image2D image;
+
+layout(set = 0, binding = 2) uniform sampler2D albedoTex;
+layout(set = 0, binding = 3) uniform sampler2D metalicTex;
+layout(set = 0, binding = 4) uniform sampler2D normalTex;
+layout(set = 0, binding = 5) uniform sampler2D worldPosTex;
+
+
+struct shadowRayPayload
+{
+  int occlusion;
+};
+
+layout(location = 0) rayPayloadNV shadowRayPayload prd;
+
+layout(binding = 0, set = 1) uniform CameraProperties
+{
+  mat4 view;
+  mat4 proj;
+  mat4 viewInverse;
+  mat4 projInverse;
+}
+cam;
+
+void main()
+{
+    const vec2 pixelCenter = vec2(gl_LaunchIDNV.xy) + vec2(0.5);
+    const vec2 inUV        = pixelCenter / vec2(gl_LaunchSizeNV.xy);
+    vec2       d           = inUV * 2.0 - 1.0;
+
+
+    uint  rayFlags = gl_RayFlagsOpaqueNV;
+    float tMin     = 0.001;
+    float tMax     = 10000.0;
+
+
+    for (uint lightIndex = 0; lightIndex < LIGHT_NUM; lightIndex++){
+        // sample
+
+        float lightArea = ;
+
+        vec3 tempColor = vec3(0.0, 0.0, 0.0);
+        for (uint spIndex = 0; spIndex < PER_LIGHT_SP; spIndex++){
+            float r1 = rnd(seed);
+            float r2 = rnd(seed);
+
+            vec3 sampledPoint = lightPos[lightIndex][0] + r1*( lightPos[lightIndex][1] - lightPos[lightIndex][0] ) + r2*( lightPos[lightIndex][2] - lightPos[lightIndex][0] )
+
+            vec3 origin    = texture(worldPosTex, inUV).xyz;
+            vec3 direction = sampledPoint - origin;
+            float dist = length(direction);
+            direction /= dist; 
+            
+            // shadow ray
+            traceNV(topLevelAS,     // acceleration structure
+                rayFlags,       // rayFlags
+                0xFF,           // cullMask
+                0,              // sbtRecordOffset
+                0,              // sbtRecordStride
+                0,              // missIndex
+                origin,     // ray origin
+                tMin,           // ray min range
+                direction,  // ray direction
+                tMax,           // ray max range
+                0               // payload (location = 0)
+            );  
+
+            if (prd.occlusion == 0)
+                tempColor += evaluateShading();
+        }
+
+        tempColor /= PER_LIGHT_SP;
+
+        fragColor.rgb += tempColor;
+
+    }
+
+
+    
+
+    imageStore(image, ivec2(gl_LaunchIDNV.xy), vec4(prd.hitValue, 1.0));
+}

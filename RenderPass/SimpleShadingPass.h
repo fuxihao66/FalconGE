@@ -37,6 +37,9 @@ namespace Falcon{
 
             renderTarget = Factory::CreateRenderTarget();
             renderTarget->AddAttachments(vector<TextureD3D12Impl::Ptr>{tex});
+
+
+            InitializeShaderResourceBinding();
         }
 
 

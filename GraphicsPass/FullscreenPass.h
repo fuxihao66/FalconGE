@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
-#include "BaseGraphicsPass.h"
+#include "ScenePass.h"
 #include "../Core/RenderEngine.h"
 #include "../Core/Resource.h"
 #include "../Core/RenderFactory.h"
@@ -18,7 +18,7 @@ namespace Falcon {
     public:
 
         FullscreenPass(const std::wstring& psFileName, const std::string& passName, const std::wstring& entryPoint, ShaderModel sm, uint numRenderTarget) :
-            BaseGraphicsPass(L"fspVS.hlsl", psFileName, passName, entryPoint, sm, ShaderType::Graphics, numRenderTarget)
+            ScenePass(L"BlitVS.hlsl", psFileName, passName, entryPoint, sm, ShaderType::Graphics, numRenderTarget)
         {
             _numRenderTarget = numRenderTarget;
             //FullscreenPass::Ptr fpp = std::make_shared<FullscreenPass>();
@@ -44,7 +44,7 @@ namespace Falcon {
         }*/
 
         void Execute(RenderTargetD3D12Impl::Ptr rt) {
-
+            Begin();
 
             RenderEngineD3D12Impl::Instance()->SetRenderTargets(_numRenderTarget, rt); 
 

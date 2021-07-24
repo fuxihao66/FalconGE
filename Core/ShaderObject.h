@@ -1,14 +1,18 @@
 #pragma once
 #include "ShaderResourceBinding.h"
 
-// TODO: ÐèÒªÌí¼Ólib¿â£»²¢ÇÒdxcÐèÒªÖØÐÂÏÂ£¨sdkµÄ°æ±¾Ì«µÍ£©
+// TODO: ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½libï¿½â£»ï¿½ï¿½ï¿½ï¿½dxcï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½sdkï¿½Ä°æ±¾Ì«ï¿½Í£ï¿½
 namespace Falcon {
     class ShaderObject {
     protected:
         string _shaderName;
-        vector<std::string> _srvResourceBinding;   // indexÊÇregister bindpoint
+        vector<std::string> _srvResourceBinding;   // indexï¿½ï¿½register bindpoint
         vector<std::string> _uavResourceBinding;
         vector<std::string> _cbvResourceBinding;
+
+
+        int _ASBindingPoint = -1;
+
         string _srvTableName;
         string _uavTableName;
         uint _space = 0;
@@ -24,7 +28,7 @@ namespace Falcon {
     public:
         using Ptr = std::shared_ptr<ShaderObject>;
         ShaderResourceBindingD3D12Impl::Ptr CreateShaderResourceBinding() {
-            // ´´½¨srb  ÓÃ»§¿ÉÒÔÎªÒ»¸öshader´´½¨¶à¸ösrb£¨±ÈÈçÍ¬Ò»¸ö¹ÜÏß  ²»Í¬²ÄÖÊ£©
+            // ï¿½ï¿½ï¿½ï¿½srb  ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ÎªÒ»ï¿½ï¿½shaderï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½srbï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½Í¬ï¿½ï¿½ï¿½Ê£ï¿½
 
             return std::make_shared<ShaderResourceBindingD3D12Impl>(_srvTableName, _uavTableName, _srvResourceBinding, _uavResourceBinding);
         }
@@ -36,7 +40,7 @@ namespace Falcon {
 
         ShaderObject() = default;
 
-        // TODO:  ³öÏÖÊý×éµÄÊ±ºòÔõÃ´°ì£¬bind range£¿
+        // TODO:  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ã´ï¿½ì£¬bind rangeï¿½ï¿½
         ShaderObject(const std::wstring& fileName, const std::string& shaderName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st) {
             _st = st;
             //auto pTarget = GetPTarget(shaderType, sm);
@@ -75,28 +79,34 @@ namespace Falcon {
                 RenderEngineD3D12Impl::Instance()->CreateComputePipeline(_BufferSize, _BufferPointer, _shaderName);
         }
 
-        
+        std::string GetShaderName() const{
+            return _shaderName;
+        }
 
-        std::string GetSRVTableName() {
+        std::string GetSRVTableName() const {
             return _srvTableName;
         }
-        std::string GetUAVTableName() {
+        std::string GetUAVTableName() const {
             return _uavTableName;
         }
 
-        uint GetSRVTableSize(){
+        uint GetSRVTableSize() const {
             return _srvResourceBinding.size();
         }
 
-        uint GetUAVTableSize(){
+        uint GetUAVTableSize() const {
             return _uavResourceBinding.size();
         }
 
-        vector<std::string>& GetConstantBinding() {
+        const vector<std::string>& GetConstantBinding() const {
             return _cbvResourceBinding;
         }
 
-        uint GetSpace() {
+        int GetASBindPoint()const {
+            return _ASBindingPoint;
+        }
+
+        uint GetSpace() const {
             return _space;
         }
 
@@ -107,12 +117,11 @@ namespace Falcon {
             auto resourceType = resource_desc.Type;
             auto registerIndex = resource_desc.BindPoint;
 
-            /*std::cout << "var name is " << shaderVarName << std::endl;
-            std::cout << "type name is " << resourceType << std::endl;
-            std::cout << "register index is " << registerIndex << std::endl;
-            std::cout << "register space is " << registerSpace << std::endl;*/
 
-            if (resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_TBUFFER ||
+            if (std::string(resource_desc.Name) == "gScene"){
+                _ASBindingPoint = registerIndex;
+            }
+            else if (resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_TBUFFER ||
                 resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_TEXTURE ||
                 resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_STRUCTURED ||
                 resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_BYTEADDRESS ||
@@ -132,9 +141,10 @@ namespace Falcon {
                 uavCount++;
 
 
-            }
+            }// TODO: è¿™é‡Œå­˜å‚¨çš„ä¸æ˜¯var nameï¼Œè€Œæ˜¯ shaderVarName+"_"+_shaderName  ä¸»è¦æ˜¯renderEngineä¸­ç´¢å¼•slotæ—¶å€™é˜²æ­¢ä¸åŒçš„shaderä¸­æœ‰åŒæ ·å˜é‡åçš„æƒ…å†µ
             else if (resourceType == D3D_SHADER_INPUT_TYPE::D3D_SIT_CBUFFER) {
-                _cbvResourceBinding[registerIndex] = shaderVarName;
+                // _cbvResourceBinding[registerIndex] = shaderVarName;
+                _cbvResourceBinding[registerIndex] = shaderVarName+"_"+_shaderName;
                 cbvCount++;
 
 
@@ -202,7 +212,7 @@ namespace Falcon {
         }
 
 
-        // TODO: ·´Éä²»Í¬   ÔÝÊ±Î´ÊµÏÖ
+        // TODO: 
         void* CreateFromFileDXR(const std::wstring& filename, const std::wstring& pTarget, uint& shaderBufferSize) {
             CComPtr<IDxcUtils> pUtils;
             CComPtr<IDxcCompiler3> pCompiler;
@@ -292,7 +302,7 @@ namespace Falcon {
             }
 
             // reflection
-            CComPtr< ID3D12LibraryReflection > pReflection;  // ÐèÒªÓÃ²»Í¬µÄreflection
+            CComPtr< ID3D12LibraryReflection > pReflection;  // reflection
 
 
             CComPtr<IDxcBlob> pReflectionData;
@@ -321,7 +331,7 @@ namespace Falcon {
             
 
             for (auto i = 0; i < libdesc.FunctionCount; i++) {
-                // ÏÈhit miss ×îºó raygen
+                // hit miss raygen
                 auto functionReflect = pReflection->GetFunctionByIndex(i);
 
                 D3D12_FUNCTION_DESC  shader_desc;
@@ -334,6 +344,7 @@ namespace Falcon {
                     functionReflect->GetResourceBindingDesc(i, &resource_desc);
 
 
+                    
                     ReadFromReflection(resource_desc, srvCount, uavCount, cbvCount);
                 }
             }
@@ -483,6 +494,7 @@ namespace Falcon {
 
         }
         
+        void CreatePipelineStateObject()=default;
 
     };
 }

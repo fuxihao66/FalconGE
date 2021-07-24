@@ -14,24 +14,28 @@ namespace Falcon {
         ShaderObject::Ptr _shaderObj;
     public:
         // shaderType : "ps"  "vs" "gs" "cs" "lib"
-        BaseGraphicsPass(const std::wstring& vsFileName, const std::wstring& psFileName, const std::string& passName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st, uint numRenderTarget) : _passName(passName){
-            _shaderObj = std::make_shared<ShaderObjectVsPs>(vsFileName, psFileName,  passName, entryPoint, sm, st, numRenderTarget);
+        BaseGraphicsPass(const string& passName) : _passName(passName){
             //Initialize();
         }
 
         virtual void Initialize() {
 
         }
-        void Begin() {
-            RenderEngineD3D12Impl::Instance()->SetPipeline(_passName);
+        virtual void Begin() {
+            // RenderEngineD3D12Impl::Instance()->SetPipeline(_passName);
+        }
+
+        void BindAccelerationStruct(ResourceD3D12Impl::Ptr resource){
+            RenderEngineD3D12Impl::Instance()->BindAccelerationStructToPipeline("gScene_"+_shaderObj->GetShaderName(), resource);
+
         }
 
         void BindConstantBuffer(const string& varName, ResourceD3D12Impl::Ptr resource) {
             if (_shaderObj->GetType() == ShaderType::Graphics) {
-                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline(varName, resource);
+                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline(varName+"_"+_shaderObj->GetShaderName(), resource);
             }
             else {
-                RenderEngineD3D12Impl::Instance()->BindConstantToComputePipeline(varName, resource);
+                RenderEngineD3D12Impl::Instance()->BindConstantToComputePipeline(varName+"_"+_shaderObj->GetShaderName(),resource);
             }
         }
         void BindShaderResourceBinding(ShaderResourceBindingD3D12Impl::Ptr srb) {
@@ -52,13 +56,11 @@ namespace Falcon {
         }*/
 
         //void BindResourceToBinding(std::map<std::string, Resource::Ptr>& bmap) {
-        //    // 创建descriptor
 
 
         //}
 
         //void BindPass() {
-        //    // 确定用这个shader
 
         //    // 
         //    //BindResourceBindingToPipeline(srb);
