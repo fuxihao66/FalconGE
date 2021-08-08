@@ -43,9 +43,9 @@ using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 namespace Falcon {
 
-    inline Scene::Ptr LoadScene(const string& sceneFile) {
+    // inline Scene::Ptr LoadScene(const string& sceneFile) {
 
-    }
+    // }
 
 
     enum TOPOLOGY_TYPE {
