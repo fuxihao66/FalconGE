@@ -18,8 +18,8 @@ namespace Falcon {
             return _modelMat;
         }
 
-        BufferD3D12Impl::Ptr _vertexBuffer;
-        BufferD3D12Impl::Ptr _indexBuffer;
+        // BufferD3D12Impl::Ptr _vertexBuffer;
+        // BufferD3D12Impl::Ptr _indexBuffer;
 
         D3D12_VERTEX_BUFFER_VIEW GetVertexBuffer() {
             D3D12_VERTEX_BUFFER_VIEW vbv;
@@ -40,6 +40,87 @@ namespace Falcon {
             return ibv;
 
         }
+
+        void BuildBLAS(){
+            auto device = m_deviceResources->GetD3DDevice();
+            auto commandList = m_deviceResources->GetCommandList();
+            auto commandQueue = m_deviceResources->GetCommandQueue();
+            auto commandAllocator = m_deviceResources->GetCommandAllocator();
+
+            // Reset the command list for the acceleration structure construction.
+            commandList->Reset(commandAllocator, nullptr);
+
+            D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
+            geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+            geometryDesc.Triangles.IndexBuffer = m_indexBuffer.resource->GetGPUVirtualAddress();
+            geometryDesc.Triangles.IndexCount = static_cast<UINT>(m_indexBuffer.resource->GetDesc().Width) / sizeof(Index);
+            geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
+            geometryDesc.Triangles.Transform3x4 = 0;
+            geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+            geometryDesc.Triangles.VertexCount = static_cast<UINT>(m_vertexBuffer.resource->GetDesc().Width) / sizeof(Vertex);
+            geometryDesc.Triangles.VertexBuffer.StartAddress = m_vertexBuffer.resource->GetGPUVirtualAddress();
+            geometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
+
+
+            // Mark the geometry as opaque. 
+            // PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
+            // Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
+            geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+            // Get required sizes for an acceleration structure.
+            D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+
+            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC bottomLevelBuildDesc = {};
+            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& bottomLevelInputs = bottomLevelBuildDesc.Inputs;
+            bottomLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+            bottomLevelInputs.Flags = buildFlags;
+            bottomLevelInputs.NumDescs = 1;
+            bottomLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+            bottomLevelInputs.pGeometryDescs = &geometryDesc;
+
+            D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO bottomLevelPrebuildInfo = {};
+            m_dxrDevice->GetRaytracingAccelerationStructurePrebuildInfo(&bottomLevelInputs, &bottomLevelPrebuildInfo);
+            ThrowIfFalse(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
+
+
+            ComPtr<ID3D12Resource> scratchResource;
+            AllocateUAVBuffer(device, max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes), &scratchResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, L"ScratchResource");
+
+            // Allocate resources for acceleration structures.
+            // Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
+            // Default heap is OK since the application doesnæŠ° need CPU read/write access to them. 
+            // The resources that will contain acceleration structures must be created in the state D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, 
+            // and must have resource flag D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS. The ALLOW_UNORDERED_ACCESS requirement simply acknowledges both: 
+            //  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
+            //  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
+            {
+               D3D12_RESOURCE_STATES initialResourceState = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+
+               AllocateUAVBuffer(device, bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes, &m_bottomLevelAccelerationStructure, initialResourceState, L"BottomLevelAccelerationStructure");
+               
+            }
+
+            // æ¯ä¸ªBLASå¯¹åº”ä¸€ä¸ªinstanceDesc
+            ComPtr<ID3D12Resource> instanceDescs;
+            D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
+            instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
+            instanceDesc.InstanceMask = 1;
+            instanceDesc.AccelerationStructure = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
+            AllocateUploadBuffer(device, &instanceDesc, sizeof(instanceDesc), &instanceDescs, L"InstanceDescs");
+
+            // Bottom Level Acceleration Structure desc
+            {
+               bottomLevelBuildDesc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress();
+               bottomLevelBuildDesc.DestAccelerationStructureData = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
+            }
+
+
+            raytracingCommandList->BuildRaytracingAccelerationStructure(&bottomLevelBuildDesc, 0, nullptr);
+            commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(m_bottomLevelAccelerationStructure.Get()));
+
+            // è¦ç”¨ä¸“é—¨çš„command list ?
+        }
+
         uint GetIndexBufferSize(){
             return _indexBuffer->GetElementNum();
         }
@@ -111,14 +192,20 @@ namespace Falcon {
         }
     };
     class Scene {
-        //  Ìá¹©×î»ù±¾µÄ½Ó¿Ú ½øĞĞmeshµÄäÖÈ¾
-        // Ìá¹©Ò»¸öÍêÕûµÄvertex bufferºÍindices buffer
-        // Ã¿¸ömeshäÖÈ¾µÄÊ±ºò£¬Í¨¹ıoffsetÀ´µÃµ½¶ÔÓ¦µÄvertex bufferºÍindices bufferµÄhandle
+        //  æä¾›æœ€åŸºæœ¬çš„æ¥å£ è¿›è¡Œmeshçš„æ¸²æŸ“
+        // æä¾›ä¸€ä¸ªå®Œæ•´çš„vertex bufferå’Œindices buffer
+        // æ¯ä¸ªmeshæ¸²æŸ“çš„æ—¶å€™ï¼Œé€šè¿‡offsetæ¥å¾—åˆ°å¯¹åº”çš„vertex bufferå’Œindices bufferçš„handle
     private:
         Camera::Ptr _camera;
         uint _numMeshInstance;
         uint _numMaterial;
 
+        // ç»´æŠ¤ä¸€ä¸ªå¤§bufferå’Œstride array
+        BufferD3D12Impl::Ptr _vertexBuffer;
+        BufferD3D12Impl::Ptr _indexBuffer;
+        vector<uint> _vertexStride;
+        vector<uint> _indexStride;
+        // æ¯æ¬¡åªéœ€è¦ç»‘å®šä¸€ä¸ªå®Œæ•´çš„buffer
 
         vector<MeshInstanceData> _meshWrapping;
         vector<Mesh::Ptr> _mesh;
@@ -135,7 +222,7 @@ namespace Falcon {
         
         Scene() {
 
-            // ¹¹½¨rt¼ÓËÙ½á¹¹ 
+            // æ„å»ºrtåŠ é€Ÿç»“æ„ 
             BuildAccelerationStructures();
 
         }
@@ -144,119 +231,90 @@ namespace Falcon {
             return _as;
         }
 
+        static shared_ptr<Scene> CreateSceneFromFile(const std::string& sceneFilePath){
+            
+            shared_ptr<Scene> newScene = make_shared<Scene>();
 
+            auto parsedData = FileParser::ParseFile(sceneFilePath);
+            // model matrix
+            for (auto singleMesh : parsedData->Mesh){
+                // model matrix
+            }
+            for (auto singleMaterial : parsedData->Material){
+
+            }
+
+            for (auto singleMeshInstance : parsedData->MeshInstance){
+
+                // if material == emission
+                // åˆ›å»º emitter2mesh  ç”¨äºä¹‹åè®¡ç®—
+            }
+
+
+            newScene->Camera = parsedData->Camera;
+        }
 
         void BuildAccelerationStructures()
         {
-            //auto device = m_deviceResources->GetD3DDevice();
-            //auto commandList = m_deviceResources->GetCommandList();
-            //auto commandQueue = m_deviceResources->GetCommandQueue();
-            //auto commandAllocator = m_deviceResources->GetCommandAllocator();
 
-            //// Reset the command list for the acceleration structure construction.
-            //commandList->Reset(commandAllocator, nullptr);
+            
 
-            //D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
-            //geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-            //geometryDesc.Triangles.IndexBuffer = m_indexBuffer.resource->GetGPUVirtualAddress();
-            //geometryDesc.Triangles.IndexCount = static_cast<UINT>(m_indexBuffer.resource->GetDesc().Width) / sizeof(Index);
-            //geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
-            //geometryDesc.Triangles.Transform3x4 = 0;
-            //geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-            //geometryDesc.Triangles.VertexCount = static_cast<UINT>(m_vertexBuffer.resource->GetDesc().Width) / sizeof(Vertex);
-            //geometryDesc.Triangles.VertexBuffer.StartAddress = m_vertexBuffer.resource->GetGPUVirtualAddress();
-            //geometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(Vertex);
+           
 
-            //// Mark the geometry as opaque. 
-            //// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
-            //// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-            //geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+            
 
-            //// Get required sizes for an acceleration structure.
-            //D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC topLevelBuildDesc = {};
+            D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& topLevelInputs = topLevelBuildDesc.Inputs;
+            topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+            topLevelInputs.Flags = buildFlags;
+            topLevelInputs.NumDescs = 1;
+            topLevelInputs.pGeometryDescs = nullptr;
+            topLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 
-            //D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC bottomLevelBuildDesc = {};
-            //D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& bottomLevelInputs = bottomLevelBuildDesc.Inputs;
-            //bottomLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-            //bottomLevelInputs.Flags = buildFlags;
-            //bottomLevelInputs.NumDescs = 1;
-            //bottomLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-            //bottomLevelInputs.pGeometryDescs = &geometryDesc;
-
-            //D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC topLevelBuildDesc = {};
-            //D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& topLevelInputs = topLevelBuildDesc.Inputs;
-            //topLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-            //topLevelInputs.Flags = buildFlags;
-            //topLevelInputs.NumDescs = 1;
-            //topLevelInputs.pGeometryDescs = nullptr;
-            //topLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-
-            //D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO topLevelPrebuildInfo = {};
-            //m_dxrDevice->GetRaytracingAccelerationStructurePrebuildInfo(&topLevelInputs, &topLevelPrebuildInfo);
+            D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO topLevelPrebuildInfo = {};
+            m_dxrDevice->GetRaytracingAccelerationStructurePrebuildInfo(&topLevelInputs, &topLevelPrebuildInfo);
             //ThrowIfFalse(topLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
 
-            //D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO bottomLevelPrebuildInfo = {};
-            //m_dxrDevice->GetRaytracingAccelerationStructurePrebuildInfo(&bottomLevelInputs, &bottomLevelPrebuildInfo);
-            //ThrowIfFalse(bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
+            
+            AllocateUAVBuffer(device, topLevelPrebuildInfo.ResultDataMaxSizeInBytes, &m_topLevelAccelerationStructure, initialResourceState, L"TopLevelAccelerationStructure");
+            
 
-            //ComPtr<ID3D12Resource> scratchResource;
-            //AllocateUAVBuffer(device, max(topLevelPrebuildInfo.ScratchDataSizeInBytes, bottomLevelPrebuildInfo.ScratchDataSizeInBytes), &scratchResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, L"ScratchResource");
+            
+            // ä¸€ä¸ªmesh ä¸€ä¸ªå®ä¾‹ instance ä¹Ÿå°±ä¸€ä¸ªtransform
+            // ä¸€ä¸ªmeshä¸‹æ‰€æœ‰ä¸‰è§’å½¢é€šè¿‡geometryIndexæ¥ç´¢å¼•
 
-            //// Allocate resources for acceleration structures.
-            //// Acceleration structures can only be placed in resources that are created in the default heap (or custom heap equivalent). 
-            //// Default heap is OK since the application doesn’t need CPU read/write access to them. 
-            //// The resources that will contain acceleration structures must be created in the state D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, 
-            //// and must have resource flag D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS. The ALLOW_UNORDERED_ACCESS requirement simply acknowledges both: 
-            ////  - the system will be doing this type of access in its implementation of acceleration structure builds behind the scenes.
-            ////  - from the app point of view, synchronization of writes/reads to acceleration structures is accomplished using UAV barriers.
-            //{
-            //    D3D12_RESOURCE_STATES initialResourceState = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
 
-            //    AllocateUAVBuffer(device, bottomLevelPrebuildInfo.ResultDataMaxSizeInBytes, &m_bottomLevelAccelerationStructure, initialResourceState, L"BottomLevelAccelerationStructure");
-            //    AllocateUAVBuffer(device, topLevelPrebuildInfo.ResultDataMaxSizeInBytes, &m_topLevelAccelerationStructure, initialResourceState, L"TopLevelAccelerationStructure");
-            //}
+            // Top Level Acceleration Structure desc
+            {
+               topLevelBuildDesc.DestAccelerationStructureData = m_topLevelAccelerationStructure->GetGPUVirtualAddress();
+               topLevelBuildDesc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress(); // ä¸´æ—¶ç©ºé—´ï¼Ÿï¼Ÿ
+               topLevelBuildDesc.Inputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();    // æ¯ä¸ªblasçš„desc  å†…å­˜ä¸Šè¿ç»­  std::vector<D3D12_RAYTRACING_INSTANCE_DESC>& instanceDescs
+               // descé‡Œé¢
+            } 
 
-            //// Create an instance desc for the bottom-level acceleration structure.
-            //ComPtr<ID3D12Resource> instanceDescs;
-            //D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
-            //instanceDesc.Transform[0][0] = instanceDesc.Transform[1][1] = instanceDesc.Transform[2][2] = 1;
-            //instanceDesc.InstanceMask = 1;
-            //instanceDesc.AccelerationStructure = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
-            //AllocateUploadBuffer(device, &instanceDesc, sizeof(instanceDesc), &instanceDescs, L"InstanceDescs");
-
-            //// Bottom Level Acceleration Structure desc
-            //{
-            //    bottomLevelBuildDesc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress();
-            //    bottomLevelBuildDesc.DestAccelerationStructureData = m_bottomLevelAccelerationStructure->GetGPUVirtualAddress();
-            //}
-
-            //// Top Level Acceleration Structure desc
-            //{
-            //    topLevelBuildDesc.DestAccelerationStructureData = m_topLevelAccelerationStructure->GetGPUVirtualAddress();
-            //    topLevelBuildDesc.ScratchAccelerationStructureData = scratchResource->GetGPUVirtualAddress();
-            //    topLevelBuildDesc.Inputs.InstanceDescs = instanceDescs->GetGPUVirtualAddress();
-            //}
-
-            //auto BuildAccelerationStructure = [&](auto* raytracingCommandList)
-            //{
-            //    raytracingCommandList->BuildRaytracingAccelerationStructure(&bottomLevelBuildDesc, 0, nullptr);
-            //    commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(m_bottomLevelAccelerationStructure.Get()));
-            //    raytracingCommandList->BuildRaytracingAccelerationStructure(&topLevelBuildDesc, 0, nullptr);
-            //};
+            auto BuildTLAS = [&](auto* raytracingCommandList)
+            {
+               
+               raytracingCommandList->BuildRaytracingAccelerationStructure(&topLevelBuildDesc, 0, nullptr);
+            };
 
             //// Build acceleration structure.
-            //BuildAccelerationStructure(m_dxrCommandList.Get());
+            BuildTLAS(m_dxrCommandList.Get());
 
             //// Kick off acceleration structure construction.
-            //m_deviceResources->ExecuteCommandList();
+            m_deviceResources->ExecuteCommandList();
 
             //// Wait for GPU to finish as the locally created temporary GPU resources will get released once we go out of scope.
             //m_deviceResources->WaitForGpu();
+            RenderEngineD3D12Impl::Instance()->Flush();
+
+
+            
         }
         void CreatePassFromFile(const std::string& vsFilename, const std::string& psFileName, const std::string& passName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st, uint numRenderTarget) {
 
             _passName = passName;
-            // ´«Í³
+            // ä¼ ç»Ÿ
             _shaderObj = std::make_shared<ShaderObjectVsPs>(vsFilename, psFileName, passName, entryPoint, sm, st, numRenderTarget);
 
             BuildResourceBinding();
@@ -303,7 +361,7 @@ namespace Falcon {
             return _shaderObj;
         }
 
-        // rt ×ÊÔ´´´½¨µÈ
+        // rt èµ„æºåˆ›å»ºç­‰
         void RenderScene(uint numAttachments, RenderTargetD3D12Impl::Ptr Fbo) {
 
             RenderEngineD3D12Impl::Instance()->SetPipeline(_passName);
@@ -322,8 +380,8 @@ namespace Falcon {
 
                 RenderEngineD3D12Impl::Instance()->BindResourceBindingToGraphicsPipeline(mat->GetResourceBinding());
 
-                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gModelMat_"+_shaderObj->GetShaderName(), _modelResource);// Ö»ÓĞmvp¾ØÕó   ²»Ö§³ÖÆäËûµÄ
-                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gViewProjMat_"+_shaderObj->GetShaderName(), _viewProjResource);// Ö»ÓĞmvp¾ØÕó   ²»Ö§³ÖÆäËûµÄ
+                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gModelMat_"+_shaderObj->GetShaderName(), _modelResource);// åªæœ‰mvpçŸ©é˜µ   ä¸æ”¯æŒå…¶ä»–çš„
+                RenderEngineD3D12Impl::Instance()->BindConstantToGraphicsPipeline("gViewProjMat_"+_shaderObj->GetShaderName(), _viewProjResource);// åªæœ‰mvpçŸ©é˜µ   ä¸æ”¯æŒå…¶ä»–çš„
 
 
 
@@ -336,12 +394,15 @@ namespace Falcon {
 
                 RenderEngineD3D12Impl::Instance()->SetTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-                RenderEngineD3D12Impl::Instance()->DrawInstanced(mesh->GetIndexBufferSize(), 1);
+
+                auto indexOffset = _indexStride[i];
+                auto vertexOffset = _vertexStride[i];
+                RenderEngineD3D12Impl::Instance()->DrawInstanced(mesh->GetIndexBufferSize(), 1, indexOffset, vertexOffset);
             }
             
         }
 
-        // ¿ÉÒÔÈÃÓÃ»§°ó¶¨µ½srv , ray tracingµÄÊ±ºòÓĞÓÃ
+        // å¯ä»¥è®©ç”¨æˆ·ç»‘å®šåˆ°srv , ray tracingçš„æ—¶å€™æœ‰ç”¨
         ResourceD3D12Impl::Ptr GetSceneMeshBuffer() {
             return nullptr;
         }

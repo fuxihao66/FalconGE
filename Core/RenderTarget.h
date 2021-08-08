@@ -35,7 +35,7 @@ namespace Falcon {
 			return dsvHandle;
 		}
 		void AddAttachments(const vector<TextureD3D12Impl::Ptr>& buffers) {
-			// ´´½¨rtv  °ó¶¨µ½ÕâÐ©textureÉÏ
+			// åˆ›å»ºrtv  ç»‘å®šåˆ°è¿™äº›textureä¸Š
 			auto numAttachments = buffers.size();
 
 			rtvHandle = {
@@ -56,7 +56,7 @@ namespace Falcon {
 
 
 		void AddAttachments(const vector<TextureD3D12Impl::Ptr>& buffers, TextureD3D12Impl::Ptr depthStencilBuffer) {
-			// ´´½¨rtv  °ó¶¨µ½ÕâÐ©textureÉÏ
+			// åˆ›å»ºrtv  ç»‘å®šåˆ°è¿™äº›textureä¸Š
 
 			dsvHandle = {
 				 RenderEngineD3D12Impl::Instance()->GetCPUTopDSVDescriptorHandle() };

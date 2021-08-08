@@ -49,16 +49,16 @@ namespace Falcon {
 	//			_selfPointer = new RenderEngineD3D12Impl();
 	//			break;
 	//		//case ApiType::D3D11:
-	//		//	// Å×³öÒì³£
+	//		//	// æŠ›å‡ºå¼‚å¸¸
 	//		//	break;
 	//		//case ApiType::OGL:
-	//		//	// Å×³öÒì³£
+	//		//	// æŠ›å‡ºå¼‚å¸¸
 	//		//	break;
 	//		//case ApiType::Vulkan:
-	//		//	// Å×³öÒì³£
+	//		//	// æŠ›å‡ºå¼‚å¸¸
 	//		//	break;
 	//		//case ApiType::Nan:
-	//		//	// Å×³öÒì³£
+	//		//	// æŠ›å‡ºå¼‚å¸¸
 	//		//	break;
 	//		default:
 	//			break;
@@ -141,15 +141,15 @@ namespace Falcon {
 		uint currRSUsabeIndex = 0;
 		std::vector< ComPtr<ID3D12RootSignature>> _mRootSignatures;
 		//std::vector<std::map<std::string, int>> shaderVarNameToRootSignatureSlot;
-		std::vector<std::map<std::string, int>> bindingNameToRootSignatureSlot;            // °Ñ°ó¶¨ÃûÓ³Éäµ½slot  ¶ÔÓÚconstºÍscene  °ó¶¨ÃûÊÇ±äÁ¿Ãû+shaderÃû£»¶ÔÓÚsrvºÍuav  °ó¶¨ÃûÊÇshaderÃû+uav/srv
+		std::vector<std::map<std::string, int>> bindingNameToRootSignatureSlot;            // æŠŠç»‘å®šåæ˜ å°„åˆ°slot  å¯¹äºconstå’Œscene  ç»‘å®šåæ˜¯å˜é‡å+shaderåï¼›å¯¹äºsrvå’Œuav  ç»‘å®šåæ˜¯shaderå+uav/srv
 		std::vector<std::map<std::string, ResourceState>> shaderVarNameToBindingState;
 
 		/*
-		// Ò»¸örenderPassÎ¬»¤Ò»¸öroot signature£¬Ò»×éshader¶ÔÓ¦Ò»¸ö¹ÜÏß
-		// Ã¿¸öshader£¨¹ÜÏß£©Ò»¸öspace£¬·ÀÖ¹ÒòÎª¹²ÓÃroot signatureµ¼ÖÂ³åÍ»
-		// Í¨¹ıshader·´ÉäÀ´´´½¨root signature£¨
-		// ×ÊÔ´°ó¶¨ĞèÒªÔÚinitialize½×¶ÎÍê³É£¨ÒòÎªÒª¸ù¾İdescriptor table½øĞĞdescriptorµÄ´´½¨ £©
-			// Ò»¸ö¹ÜÏß ¶à×évertex  ¿ÉÄÜĞèÒª¶à´ÎÇĞ»»ÎÆÀí£»Òò´Ë°Ñ¹ÜÏßµÄresource binding³éÏó³öÀ´
+		// ä¸€ä¸ªrenderPassç»´æŠ¤ä¸€ä¸ªroot signatureï¼Œä¸€ç»„shaderå¯¹åº”ä¸€ä¸ªç®¡çº¿
+		// æ¯ä¸ªshaderï¼ˆç®¡çº¿ï¼‰ä¸€ä¸ªspaceï¼Œé˜²æ­¢å› ä¸ºå…±ç”¨root signatureå¯¼è‡´å†²çª
+		// é€šè¿‡shaderåå°„æ¥åˆ›å»ºroot signatureï¼ˆ
+		// èµ„æºç»‘å®šéœ€è¦åœ¨initializeé˜¶æ®µå®Œæˆï¼ˆå› ä¸ºè¦æ ¹æ®descriptor tableè¿›è¡Œdescriptorçš„åˆ›å»º ï¼‰
+			// ä¸€ä¸ªç®¡çº¿ å¤šç»„vertex  å¯èƒ½éœ€è¦å¤šæ¬¡åˆ‡æ¢çº¹ç†ï¼›å› æ­¤æŠŠç®¡çº¿çš„resource bindingæŠ½è±¡å‡ºæ¥
 		
 		ComPtr<ID3D12DescriptorHeap> g_pSRVDescriptorHeap;
 		ComPtr<ID3D12DescriptorHeap> g_pUAVDescriptorHeap;
@@ -157,21 +157,21 @@ namespace Falcon {
 		ComPtr<ID3D12DescriptorHeap> g_pStaticDescriptorHeap;
 		ComPtr<ID3D12DescriptorHeap> g_pMutableDescriptorHeap;
 		//ComPtr<ID3D12DescriptorHeap> g_pDynamicDescriptorHeap;
-		// TODO: ÏêÏ¸¹ı³Ì
-		// 1. ´´½¨×ÊÔ´£¨²»¿¼ÂÇdescriptor£©
-		// 2. Í¨¹ıshader´´½¨¹ÜÏß
-		// 3. Í¨¹ıshader »ñÈ¡±äÁ¿Ïà¹ØĞÅÏ¢£¨Ö»ÒªÖªµÀË³ĞòºÍspace£©   ´´½¨root signature
-		// 4. ÓÃ»§´´½¨resource binding£¬Ò»´ÎĞÔ°ó¶¨×ÊÔ´£¨×ÊÔ´|shader var name£© 
-		// 5. ¶ÔÃ¿Ò»¸öresource binding£¬¸ù¾İtableÖĞµÄË³Ğò£¬¸ù¾İÀàĞÍ£¨uav srv£© Îª×ÊÔ´´´½¨descriptor
+		// TODO: è¯¦ç»†è¿‡ç¨‹
+		// 1. åˆ›å»ºèµ„æºï¼ˆä¸è€ƒè™‘descriptorï¼‰
+		// 2. é€šè¿‡shaderåˆ›å»ºç®¡çº¿
+		// 3. é€šè¿‡shader è·å–å˜é‡ç›¸å…³ä¿¡æ¯ï¼ˆåªè¦çŸ¥é“é¡ºåºå’Œspaceï¼‰   åˆ›å»ºroot signature
+		// 4. ç”¨æˆ·åˆ›å»ºresource bindingï¼Œä¸€æ¬¡æ€§ç»‘å®šèµ„æºï¼ˆèµ„æº|shader var nameï¼‰ 
+		// 5. å¯¹æ¯ä¸€ä¸ªresource bindingï¼Œæ ¹æ®tableä¸­çš„é¡ºåºï¼Œæ ¹æ®ç±»å‹ï¼ˆuav srvï¼‰ ä¸ºèµ„æºåˆ›å»ºdescriptor
 		
 
-		// ¶ÔÓÚ³£Á¿£¬ÓÃgpu address°ó¶¨µ½root signature
+		// å¯¹äºå¸¸é‡ï¼Œç”¨gpu addressç»‘å®šåˆ°root signature
 
 
-		// TODO: ×ÊÔ´×ª»»Óëbarrier
-		// resource bindingÖªµÀµ±Ç°×ÊÔ´µÄtarget ×´Ì¬£»°ó¶¨Ç°¼ì²é ²¢ÇÒ×ª»»
-		// Ã¿¸ö×ÊÔ´ÖªµÀ×Ô¼ºµ±Ç°µÄ×´Ì¬
-		// uav barrier  £¿£¿£¿ ÔİÊ±²»¿¼ÂÇ£¬»òÕßÒªÇóÓÃ»§×Ô¼º¼Óbarrier
+		// TODO: èµ„æºè½¬æ¢ä¸barrier
+		// resource bindingçŸ¥é“å½“å‰èµ„æºçš„target çŠ¶æ€ï¼›ç»‘å®šå‰æ£€æŸ¥ å¹¶ä¸”è½¬æ¢
+		// æ¯ä¸ªèµ„æºçŸ¥é“è‡ªå·±å½“å‰çš„çŠ¶æ€
+		// uav barrier  ï¼Ÿï¼Ÿï¼Ÿ æš‚æ—¶ä¸è€ƒè™‘ï¼Œæˆ–è€…è¦æ±‚ç”¨æˆ·è‡ªå·±åŠ barrier
 		
 		*/
 		
@@ -180,7 +180,7 @@ namespace Falcon {
 		ComPtr<ID3D12DescriptorHeap> _pDSVDescriptorHeap;
 		ComPtr<ID3D12DescriptorHeap> _pSRVDescriptorHeap;
 		ComPtr<ID3D12DescriptorHeap> _pUAVDescriptorHeap;
-		// ³£Á¿Ö±½Ó°ó¶¨
+		// å¸¸é‡ç›´æ¥ç»‘å®š
 
 
 		void FlushCommandQueue();
@@ -272,7 +272,7 @@ namespace Falcon {
 
 
 	//bool RenderEngineD3D12Impl::BindScene() {
-	//	// °ó¶¨³¡¾°×÷ÎªSRV
+	//	// ç»‘å®šåœºæ™¯ä½œä¸ºSRV
 	//}
 	/*
 	//bool RenderEngineD3D12Impl::BindResource(const string& shaderVarName, const string&  resourceName) {
@@ -289,7 +289,7 @@ namespace Falcon {
 	//	ResourceState targetRS = shaderVarNameToBindingState[currBinding][shaderVarName];
 
 
-	//	// TODO: ¶àÏß³ÌÇé¿ö   ËÀËø£¿£¿    
+	//	// TODO: å¤šçº¿ç¨‹æƒ…å†µ   æ­»é”ï¼Ÿï¼Ÿ    
 	//	if (targetRS != resource->CurrentState()) {
 	//		// barrier
 

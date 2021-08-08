@@ -1,7 +1,7 @@
 #pragma once
 #include "ShaderObject.h"
 
-// TODO: ĞèÒªÌí¼Ólib¿â£»²¢ÇÒdxcĞèÒªÖØĞÂÏÂ£¨sdkµÄ°æ±¾Ì«µÍ£©
+// TODO: éœ€è¦æ·»åŠ libåº“ï¼›å¹¶ä¸”dxcéœ€è¦é‡æ–°ä¸‹ï¼ˆsdkçš„ç‰ˆæœ¬å¤ªä½ï¼‰
 namespace Falcon {
     class ShaderObjectVsPs: public ShaderObject {
     private:
@@ -16,7 +16,7 @@ namespace Falcon {
         
         ShaderObjectVsPs() = default;
 
-        // TODO:  ³öÏÖÊı×éµÄÊ±ºòÔõÃ´°ì£¬bind range£¿
+        // TODO:  å‡ºç°æ•°ç»„çš„æ—¶å€™æ€ä¹ˆåŠï¼Œbind rangeï¼Ÿ
         ShaderObjectVsPs(const std::wstring& vsFileName, const std::wstring& psFileName, const std::string& shaderName, const std::wstring& entryPoint, ShaderModel sm, ShaderType st, uint numRenderTarget) {
 
 

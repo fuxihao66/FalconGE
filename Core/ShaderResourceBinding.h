@@ -55,7 +55,7 @@ namespace Falcon {
 
 			srvHandle = RenderEngineD3D12Impl::Instance()->GetGPUTopSRVDescriptorHandle();
 			uavHandle = RenderEngineD3D12Impl::Instance()->GetGPUTopUAVDescriptorHandle();
-			// 创建descriptor
+			// 鍒涘缓descriptor
 			//auto tempSRVHandle = RenderEngineD3D12Impl::Instance()->GetCurrentTopSRVDescriptorHandle(); 
 			for (uint i = 0; i < _srvResourceBinding.size(); i++) {
 				
@@ -119,7 +119,7 @@ namespace Falcon {
 		}
 		
 		
-		// 检查state是否为target state 否则转换
+		// 妫�鏌tate鏄惁涓簍arget state 鍚﹀垯杞崲
 		// 
 		void CheckResourceState() {
 			for (auto& shaderVarName : _srvResourceBinding) {

@@ -1,6 +1,6 @@
 #pragma once
 /*
-用于创建资源
+鐢ㄤ簬鍒涘缓璧勬簮
 */
 #include "../Utility/utility.h"
 #include "Resource.h"

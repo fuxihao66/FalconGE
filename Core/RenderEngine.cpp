@@ -52,12 +52,12 @@ namespace Falcon {
 		return CD3DX12_CPU_DESCRIPTOR_HANDLE(_pDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), _currAvailableDSVDescriptorIndex, _DsvDescriptorSize);
 	}
 	D3D12_GPU_DESCRIPTOR_HANDLE RenderEngineD3D12Impl::GetGPUTopSRVDescriptorHandle() {
-		// »ñÈ¡µ±Ç°£¨¿ÉÓÃµÄ£©descriptor handle
+		// è·å–å½“å‰ï¼ˆå¯ç”¨çš„ï¼‰descriptor handle
 
 		return CD3DX12_GPU_DESCRIPTOR_HANDLE(_pSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart(), _currAvailableSRVDescriptorIndex, _CbvSrvUavDescriptorSize);
 	}
 	D3D12_GPU_DESCRIPTOR_HANDLE RenderEngineD3D12Impl::GetGPUTopUAVDescriptorHandle() {
-		// »ñÈ¡µ±Ç°£¨¿ÉÓÃµÄ£©descriptor handle
+		// è·å–å½“å‰ï¼ˆå¯ç”¨çš„ï¼‰descriptor handle
 
 		return CD3DX12_GPU_DESCRIPTOR_HANDLE(_pUAVDescriptorHeap->GetGPUDescriptorHandleForHeapStart(), _currAvailableUAVDescriptorIndex, _CbvSrvUavDescriptorSize);
 
@@ -102,7 +102,7 @@ namespace Falcon {
 		_device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&_pipelineStates[pipelineName]));
 	}
 
-	// TODO: RTµÄ¹ÜÏßºÍÆäËûµÄ²»Í¬
+	// TODO: RTçš„ç®¡çº¿å’Œå…¶ä»–çš„ä¸åŒ
 	void RenderEgineD3D12Impl::CreateRTPipeline(uint bufferSize, void* bufferPointer, const string& rtPipelineName, uint maxRecursion){
 		
 		// Ambient Occlusion state object.
@@ -130,7 +130,7 @@ namespace Falcon {
 
 			auto globalRootSignature = raytracingPipeline.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
 			globalRootSignature->SetRootSignature(_mRootSignatures[currBinding].Get());
-			// Õâ¸ö
+			// è¿™ä¸ª
 
 			auto pipelineConfig = raytracingPipeline.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
 			pipelineConfig->Config(maxRecursion);
@@ -199,7 +199,7 @@ namespace Falcon {
 			currBinding = -1;
 		}
 		else {
-			// TODO: ÊÇ·ñ¿ÉÒÔÍ¬Ê±°ó¶¨Á½¸öroot signature
+			// TODO: æ˜¯å¦å¯ä»¥åŒæ—¶ç»‘å®šä¸¤ä¸ªroot signature
 			currBinding = rsid;
 			_d3dCommandList->SetGraphicsRootSignature(_mRootSignatures[rsid].Get());
 			_d3dCommandList->SetComputeRootSignature(_mRootSignatures[rsid].Get());
@@ -208,7 +208,7 @@ namespace Falcon {
 
 	}
 
-	// ÒªÇóÓÃ»§×ÔĞĞÌí¼Ó
+	// è¦æ±‚ç”¨æˆ·è‡ªè¡Œæ·»åŠ 
 	void RenderEngineD3D12Impl::UAVBarrier(std::vector<ResourceD3D12Impl::Ptr> pResources) {
 		std::vector< CD3DX12_RESOURCE_BARRIER> barriers(pResources.size());
 		for (size_t i = 0; i < pResources.size(); i++) {
@@ -279,10 +279,10 @@ namespace Falcon {
 
 	
 
-	// Í¨¹ıshader·´ÉäµÄ½á¹ûÀ´¹¹½¨root signature
+	// é€šè¿‡shaderåå°„çš„ç»“æœæ¥æ„å»ºroot signature
 	//https://docs.microsoft.com/en-us/windows/win32/api/d3d12shader/nn-d3d12shader-id3d12shaderreflection  
 	bool RenderEngineD3D12Impl::BuildRootSignature(const std::vector<ShaderObject::Ptr>& ShaderObjs) {
-		// Ã¿¸öspace Ã¿ÖÖÀàĞÍÒ»¸öparameter
+		// æ¯ä¸ªspace æ¯ç§ç±»å‹ä¸€ä¸ªparameter
 
 		auto numOfShader = ShaderObjs.size();
 		
@@ -329,7 +329,7 @@ namespace Falcon {
 
 			}
 			
-			// TODO: ÓĞ±ØÒªµ¥¶À²ğ³öÀ´Âğ£¿£¿£¿£¿ ºÍtextureÖ®ÀàÒ»Ñù ÓÃdescriptorÀ´¼ä½Ó°ó¶¨Ó¦¸ÃÒ²¿ÉÒÔ£¿
+			// TODO: æœ‰å¿…è¦å•ç‹¬æ‹†å‡ºæ¥å—ï¼Ÿï¼Ÿï¼Ÿï¼Ÿ å’Œtextureä¹‹ç±»ä¸€æ · ç”¨descriptoræ¥é—´æ¥ç»‘å®šåº”è¯¥ä¹Ÿå¯ä»¥ï¼Ÿ
 			auto ASBindPoint = shaderObject->GetASBindPoint();
 			if (ASBindPoint != -1){
 
@@ -342,7 +342,7 @@ namespace Falcon {
 
 		}
 
-		//// TODO: target×´Ì¬
+		//// TODO: targetçŠ¶æ€
 		//shaderVarNameToBindingState[currBinding][varName] = item.Type;
 
 
@@ -365,7 +365,7 @@ namespace Falcon {
 	}
 
 
-	// TODO: BindAccelerationStructToPipelineºÍBindConstantToComputePipelineµÄ²ÎÊıÊÇbindingNameToRootSignatureSlotÖĞµÄË÷ÒıÃû³Æ£¨±äÁ¿Ãû+shaderName£©
+	// TODO: BindAccelerationStructToPipelineå’ŒBindConstantToComputePipelineçš„å‚æ•°æ˜¯bindingNameToRootSignatureSlotä¸­çš„ç´¢å¼•åç§°ï¼ˆå˜é‡å+shaderNameï¼‰
 	bool RenderEngineD3D12Impl::BindAccelerationStructToPipeline(const std::string& ASIndexingName, ResourceD3D12Impl::Ptr resource) {
 		if (currBinding == -1)
 			return false;
@@ -419,7 +419,7 @@ namespace Falcon {
 	}
 
 	//bool RenderEngineD3D12Impl::BindScene() {
-	//	// °ó¶¨³¡¾°×÷ÎªSRV
+	//	// ç»‘å®šåœºæ™¯ä½œä¸ºSRV
 	//}
 	/*
 	//bool RenderEngineD3D12Impl::BindResource(const string& shaderVarName, const string&  resourceName) {
@@ -436,7 +436,7 @@ namespace Falcon {
 	//	ResourceState targetRS = shaderVarNameToBindingState[currBinding][shaderVarName];
 
 
-	//	// TODO: ¶àÏß³ÌÇé¿ö   ËÀËø£¿£¿    
+	//	// TODO: å¤šçº¿ç¨‹æƒ…å†µ   æ­»é”ï¼Ÿï¼Ÿ    
 	//	if (targetRS != resource->CurrentState()) {
 	//		// barrier
 
@@ -453,27 +453,27 @@ namespace Falcon {
 	
 
 	void RenderEngineD3D12Impl::BindResourceBindingToComputePipeline(ShaderResourceBindingD3D12Impl::Ptr srb) {
-		// ÅĞ¶Ïroot signature
+		// åˆ¤æ–­root signature
 		srb->CheckResourceState();
 
 
 		_d3dCommandList->SetComputeRootDescriptorTable(bindingNameToRootSignatureSlot[currBinding][srb->GetSRVTableName()], srb->GetSRVBindingHeadDescriptor());
 		_d3dCommandList->SetComputeRootDescriptorTable(bindingNameToRootSignatureSlot[currBinding][srb->GetUAVTableName()], srb->GetUAVBindingHeadDescriptor());
 
-		// ×ÊÔ´¼ì²éºÍ×ª»»£¿£¿
+		// èµ„æºæ£€æŸ¥å’Œè½¬æ¢ï¼Ÿï¼Ÿ
 	}
 	void RenderEngineD3D12Impl::BindResourceBindingToGraphicsPipeline(ShaderResourceBindingD3D12Impl::Ptr srb) {
-		// ÅĞ¶Ïroot signature
+		// åˆ¤æ–­root signature
 		srb->CheckResourceState();
 
 
 		_d3dCommandList->SetGraphicsRootDescriptorTable(bindingNameToRootSignatureSlot[currBinding][srb->GetSRVTableName()], srb->GetSRVBindingHeadDescriptor());
 		_d3dCommandList->SetGraphicsRootDescriptorTable(bindingNameToRootSignatureSlot[currBinding][srb->GetUAVTableName()], srb->GetUAVBindingHeadDescriptor());
 
-		// ×ÊÔ´¼ì²éºÍ×ª»»£¿£¿
+		// èµ„æºæ£€æŸ¥å’Œè½¬æ¢ï¼Ÿï¼Ÿ
 	}
 
-	// ÒòÎª±ØĞëÈ·±£
+	// å› ä¸ºå¿…é¡»ç¡®ä¿
 	void RenderEngineD3D12Impl::BeginRecording() {
 		_d3dDirectCmdAlloc[_iCurrentFrameIndex]->Reset();
 
@@ -864,7 +864,7 @@ namespace Falcon {
 		//_d3dCommandList->ResourceBarrier(2, rdBarriers);
 
 		*/
-		 // °ÑoutputTextureµÄ¶«Î÷copyµ½µ±Ç°µÄswapchainÉÏ
+		 // æŠŠoutputTextureçš„ä¸œè¥¿copyåˆ°å½“å‰çš„swapchainä¸Š
 
 		D3D12_RESOURCE_BARRIER preCopyBarriers[2];
 		preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(_pSwapChainBuffers[_iCurrentFrameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
