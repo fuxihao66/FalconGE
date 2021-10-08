@@ -5,41 +5,48 @@ using std::vector;
 using std::map;
 using std::shared_ptr;
 namespace Falcon {
+
+    struct InstanceStride{
+        uint VertexStride;
+        uint IndexStride;
+    };
+
     struct MeshInstanceData {
-        uint meshID;
-        uint materialID;
+        std::string MeshKey;
+        std::string MaterialKey;
+        DirectX::XMMATRIX ModelMat;
+        InstanceStride Stride;
     };
 
     struct Mesh{
         using Ptr = std::shared_ptr<Mesh>;
-        DirectX::XMMATRIX _modelMat;
 
-        DirectX::XMMATRIX GetModelMat() {
-            return _modelMat;
-        }
+        // DirectX::XMMATRIX GetModelMat() {
+        //     return _modelMat;
+        // }
 
         // BufferD3D12Impl::Ptr _vertexBuffer;
         // BufferD3D12Impl::Ptr _indexBuffer;
 
-        D3D12_VERTEX_BUFFER_VIEW GetVertexBuffer() {
-            D3D12_VERTEX_BUFFER_VIEW vbv;
+        // D3D12_VERTEX_BUFFER_VIEW GetVertexBuffer() {
+        //     D3D12_VERTEX_BUFFER_VIEW vbv;
 
-            vbv.BufferLocation = _vertexBuffer->GetResourcePointer()->GetGPUVirtualAddress();
-            vbv.SizeInBytes = _indexBuffer->GetElementNum() * sizeof(FSVertex);
-            vbv.StrideInBytes = sizeof(FSVertex);
+        //     vbv.BufferLocation = _vertexBuffer->GetResourcePointer()->GetGPUVirtualAddress();
+        //     vbv.SizeInBytes = _indexBuffer->GetElementNum() * sizeof(FSVertex);
+        //     vbv.StrideInBytes = sizeof(FSVertex);
 
-            return vbv;
-        }
-        D3D12_INDEX_BUFFER_VIEW GetIndexBuffer() {
+        //     return vbv;
+        // }
+        // D3D12_INDEX_BUFFER_VIEW GetIndexBuffer() {
 
-            D3D12_INDEX_BUFFER_VIEW ibv;
-            ibv.BufferLocation = _indexBuffer->GetResourcePointer()->GetGPUVirtualAddress();
-            ibv.Format = DXGI_FORMAT::DXGI_FORMAT_R32_UINT;
-            ibv.SizeInBytes = _indexBuffer->GetElementNum() * sizeof(uint);
+        //     D3D12_INDEX_BUFFER_VIEW ibv;
+        //     ibv.BufferLocation = _indexBuffer->GetResourcePointer()->GetGPUVirtualAddress();
+        //     ibv.Format = DXGI_FORMAT::DXGI_FORMAT_R32_UINT;
+        //     ibv.SizeInBytes = _indexBuffer->GetElementNum() * sizeof(uint);
 
-            return ibv;
+        //     return ibv;
 
-        }
+        // }
 
         void BuildBLAS(){
             auto device = m_deviceResources->GetD3DDevice();
@@ -171,7 +178,7 @@ namespace Falcon {
         DirectX::XMFLOAT3 _up;
         DirectX::XMFLOAT3 _lookat;
 
-        float _fov = 1.5f;
+        float _fov = PI / 2.0;
         float _aspectRatio;
         float _near = 0.1f;
         float _far = 5000.0f;
@@ -179,6 +186,15 @@ namespace Falcon {
         using Ptr = std::shared_ptr<Camera>;
         Camera() {
             _aspectRatio = RenderEngineD3D12Impl::Instance()->GetWidthHeight().x / (float)(RenderEngineD3D12Impl::Instance()->GetWidthHeight().y);
+        }
+        void SetPosition(float x, float y, float z){
+            _pos = DirectX::XMFLOAT3(x, y, z);
+        }
+        void SetUpVec(float x, float y, float z){
+            _up = DirectX::XMFLOAT3(x, y, z);
+        }
+        void SetLookAt(float x, float y, float z){
+            _lookat = DirectX::XMFLOAT3(x, y, z);
         }
         DirectX::XMFLOAT3 GetPosW() {
             return _pos;
@@ -191,6 +207,30 @@ namespace Falcon {
             XMMatrixPerspectiveFovRH(_fov, _aspectRatio, _near, _far);
         }
     };
+
+
+    // TODO: 
+    // 1. srv  vertex和index，stride 和instance2material,  
+    // 2. rt   每个geometry一个blas，然后多个instance引用同一个geometry（blas）需要创建多个instance，每个instance下面直接用primitive index索引三角形
+    // 3. material srb
+    // 4. emitter to mesh
+    // 5. 纹理（albedo等）需要localRootSignature  把descriptor绑定到hit group对应的SBT上
+    // 想办法封装起来  用户直接通过MaterialAttribute来访问
+        // 第一个是shaderIdentifier  后边是对应的localRootSignature定义的parameter    
+        // for (UINT i = 0; i < numMeshes; i++)
+        // {
+        //     byte *pShaderRecord = i * shaderRecordSizeInBytes + pShaderTable;
+        //     memcpy(pShaderRecord, pHitGroupIdentifierData, shaderIdentifierSize);
+
+        //     UINT materialIndex = model.m_pMesh[i].materialIndex;
+        //     memcpy(pShaderRecord + offsetToDescriptorHandle, &g_GpuSceneMaterialSrvs[materialIndex].ptr, sizeof(g_GpuSceneMaterialSrvs[materialIndex].ptr));
+
+        //     MaterialRootConstant material;
+        //     material.MaterialID = i;
+        //     memcpy(pShaderRecord + offsetToMaterialConstants, &material, sizeof(material));
+        // }
+
+
     class Scene {
         //  提供最基本的接口 进行mesh的渲染
         // 提供一个完整的vertex buffer和indices buffer
@@ -203,17 +243,19 @@ namespace Falcon {
         // 维护一个大buffer和stride array
         BufferD3D12Impl::Ptr _vertexBuffer;
         BufferD3D12Impl::Ptr _indexBuffer;
-        vector<uint> _vertexStride;
-        vector<uint> _indexStride;
+        
         // 每次只需要绑定一个完整的buffer
 
-        vector<MeshInstanceData> _meshWrapping;
-        vector<Mesh::Ptr> _mesh;
-        vector<Material::Ptr> _material;
+        vector<MeshInstanceData> _instance;
+        map<string, Mesh::Ptr> _mesh;
+        map<string, Material::Ptr> _material;
         /*VertexBuffer::Ptr GetVertexBuffer();
         IndexBuffer::Ptr GetIndexBuffer();*/
         ShaderObject::Ptr _shaderObj;
         string _passName;
+
+
+        
 
 
         ResourceD3D12Impl::Ptr _as;
@@ -227,38 +269,110 @@ namespace Falcon {
 
         }
         
+
+        D3D12_VERTEX_BUFFER_VIEW GetVertexBuffer() {
+            D3D12_VERTEX_BUFFER_VIEW vbv;
+
+            vbv.BufferLocation = _vertexBuffer->GetResourcePointer()->GetGPUVirtualAddress();
+            vbv.SizeInBytes = _indexBuffer->GetElementNum() * sizeof(FSVertex);
+            vbv.StrideInBytes = sizeof(FSVertex);
+
+            return vbv;
+        }
+        D3D12_INDEX_BUFFER_VIEW GetIndexBuffer() {
+
+            D3D12_INDEX_BUFFER_VIEW ibv;
+            ibv.BufferLocation = _indexBuffer->GetResourcePointer()->GetGPUVirtualAddress();
+            ibv.Format = DXGI_FORMAT::DXGI_FORMAT_R32_UINT;
+            ibv.SizeInBytes = _indexBuffer->GetElementNum() * sizeof(uint);
+
+            return ibv;
+
+        }
+
         ResourceD3D12Impl::Ptr GetAccelerationStruct(){
             return _as;
         }
 
         static shared_ptr<Scene> CreateSceneFromFile(const std::string& sceneFilePath){
-            
+            if (sceneFilePath.substr(sceneFilePath.size() - 3, 3) != "xml"){
+                // error
+                return nullptr;
+            }
+
+
+
             shared_ptr<Scene> newScene = make_shared<Scene>();
 
-            auto parsedData = FileParser::ParseFile(sceneFilePath);
-            // model matrix
-            for (auto singleMesh : parsedData->Mesh){
-                // model matrix
+            XMLDocument doc;
+            doc.LoadFile( sceneFilePath );
+
+            auto globalTextureNode = doc.FirstChildElement( "GlobalTexture" );
+
+            auto geometryNode = doc.FirstChildElement( "Geometry" );
+            auto materialNode = doc.FirstChildElement( "Material" );
+
+
+            {
+                auto instanceNode = doc.FirstChildElement( "Instance" );
+                int index = 0;
+                while(){
+                    MeshInstance meshInst;
+
+                    meshInst.MaterialKey = ;
+                    meshInst.MeshKey = ;
+                    for (int i = 0; i < 3; i++){
+                        for (int j = 0; j < 4; j++){
+                            meshInst.ModelMat[][] = ;
+                        }
+                    }
+                    if (index > 0){
+                        meshInst.Stride.VertexStride = ;
+                        meshInst.Stride.IndexStride = ;
+                    }
+                    _instance.push_back(meshInst);
+
+                    index += 1;
+                }
             }
-            for (auto singleMaterial : parsedData->Material){
+
+
+            {
+                // 创建emitter to mesh
+                // 对于某些rt 直接光照计算需要用到
+                auto lightNode = doc.FirstChildElement( "Light" );
+
+
+                D3D12Buffer<uint2> emitterToMesh;  // 每个元素代表一个light，uint2(i,j)第一个分量表示第i个mesh，第二个分量表示第j个三角形  用于获取某个三角形的顶点坐标
+                D3D12Buffer<float3> emission;  
+            }
+
+
+
+            {
+                auto cameraNode = doc.FirstChildElement( "Camera" );
+
+                auto posNode = cameraNode.FirstChildElement( "Position" );
+                auto lookatNode = cameraNode.FirstChildElement( "LookAt" );
+                auto upNode = cameraNode.FirstChildElement( "UpVec" );
+
+                newScene->_camera = std::make_shared<Camera>();
+                newScene->_camera->SetPosition(atof(posNode.FirstChildElement("x").GetText()), atof(posNode.FirstChildElement("y").GetText()), atof(posNode.FirstChildElement("z").GetText()));
+                newScene->_camera->SetLookAt(atof(lookatNode.FirstChildElement("x").GetText()), atof(lookatNode.FirstChildElement("y").GetText()), atof(lookatNode.FirstChildElement("z").GetText()));
+                newScene->_camera->SetUpVec(atof(upNode.FirstChildElement("x").GetText()), atof(upNode.FirstChildElement("y").GetText()), atof(upNode.FirstChildElement("z").GetText()));
 
             }
 
-            for (auto singleMeshInstance : parsedData->MeshInstance){
-
-                // if material == emission
-                // 创建 emitter2mesh  用于之后计算
-            }
 
 
-            newScene->Camera = parsedData->Camera;
+
         }
 
         void BuildAccelerationStructures()
         {
 
             
-
+            // 每个geometry构建一个blas
            
 
             
@@ -280,8 +394,7 @@ namespace Falcon {
             
 
             
-            // 一个mesh 一个实例 instance 也就一个transform
-            // 一个mesh下所有三角形通过geometryIndex来索引
+            
 
 
             // Top Level Acceleration Structure desc
@@ -333,15 +446,15 @@ namespace Falcon {
         }
 
         MeshInstanceData GetMeshInstance(uint i) {
-            return _meshWrapping[i];
+            return _instance[i];
         }
 
-        Mesh::Ptr GetMesh(uint meshId) {
+        Mesh::Ptr GetMesh(const std::string& meshId) {
             return _mesh[meshId];
 
         }
 
-        Material::Ptr GetMaterial(uint materialId) {
+        Material::Ptr GetMaterial(const std::string&  materialId) {
             return _material[materialId];
         }
 

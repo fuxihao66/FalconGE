@@ -1,0 +1,172 @@
+<Root>
+
+    <!-- 存在graph中，不被任何一个material reference，只会在ltc shading的时候用到 -->
+    <GlobalTexture>
+        <Instance>
+            <Name>CT_LTC_LUT</Name>
+            <TextureFile>lut_0.png</TextureFile> <!-- quad channel -->
+        </Instance>
+        <Instance>
+            <Name>CT_LTC_LUT_Normalization</Name>
+            <TextureFile>lut_1.png</TextureFile> <!-- 1 channel -->
+        </Instance>
+    </GlobalTexture>
+
+    <Geometry>
+        <Instance>
+            <Name>Quad</Name>
+            <MeshFile>quad.obj</MeshFile>
+        </Instance>
+
+        <Instance>
+            <Name>TestMesh</Name>
+            <MeshFile>mesh.obj</MeshFile>
+        </Instance>
+    </Geometry>
+    <Geometry></Geometry>
+    <Material>
+        <Instance>
+            <Name>QuadEmissive</Name>
+            <Type>Emission</Type>
+            <Value>
+                <R>1.0</R>
+                <G>1.0</G>
+                <B>1.0</B>
+            </Value>
+        </Instance>
+        
+
+        <Instance>
+            <Name>testPBRMaterial0</Name>
+            <Type>LTC</Type>
+            <Textures>
+                <Texture>
+                    <TextureFile>albedo_0.png</TextureFile>
+                    <TextureFile>normal_0.png</TextureFile>
+                    <TextureFile>specular_0.png</TextureFile>
+                    <TextureFile>roughness_0.png</TextureFile>
+                </Texture>
+            </Textures>
+            
+        </Instance>
+
+
+        <Instance>
+            <Name>testPBRMaterial1</Name>
+            <Type>LTC</Type>
+            <Textures>
+                <Texture>
+                    <TextureFile>albedo_1.png</TextureFile>
+                    <TextureFile>normal_1.png</TextureFile>
+                    <TextureFile>specular_1.png</TextureFile>
+                    <TextureFile>roughness_1.png</TextureFile>
+                </Texture>
+            </Textures>
+            
+        </Instance>
+    </Material>
+
+    <ObjectInstance>
+        <!-- 改成translate rotate scale: 需要先scale和rotate 然后再平移 -->
+        <Instance>
+            <Name>LightSource</Name>
+            <GeometryRef>Quad</GeometryRef>
+            <MaterialRef>QuadEmissive</MaterialRef>
+            <ModelMat3x4>
+                <row>
+                    <x>1.0</x>
+                    <y>0.0</y>
+                    <z>0.0</z>
+                    <w>0.0</w>
+                </row>
+                <row>
+                    <x>0.0</x>
+                    <y>1.0</y>
+                    <z>0.0</z>
+                    <w>3.0</w>
+                </row>
+                <row>
+                    <x>0.0</x>
+                    <y>0.0</y>
+                    <z>1.0</z>
+                    <w>0.0</w>
+                </row>
+            </ModelMat3x4>
+        </Instance>
+
+        <Instance>
+            <Name>Object</Name>
+            <GeometryRef>TestMesh</GeometryRef>
+            <MaterialRef>testPBRMaterial0</MaterialRef>
+            <ModelMat3x4>
+                <row>
+                    <x>1.0</x>
+                    <y>0.0</y>
+                    <z>0.0</z>
+                    <w>0.0</w>
+                </row>
+                <row>
+                    <x>0.0</x>
+                    <y>1.0</y>
+                    <z>0.0</z>
+                    <w>0.0</w>
+                </row>
+                <row>
+                    <x>0.0</x>
+                    <y>0.0</y>
+                    <z>1.0</z>
+                    <w>0.0</w>
+                </row>
+            </ModelMat3x4>
+        </Instance>
+
+        <Instance>
+            <Name>BottomQuad</Name>
+            <GeometryRef>Quad</GeometryRef>
+            <MaterialRef>testPBRMaterial1</MaterialRef>
+            <ModelMat3x4>
+                <row>
+                    <x>3.0</x>
+                    <y>0.0</y>
+                    <z>0.0</z>
+                    <w>0.0</w>
+                </row>
+                <row>
+                    <x>0.0</x>
+                    <y>1.0</y>
+                    <z>0.0</z>
+                    <w>0.0</w>
+                </row>
+                <row>
+                    <x>0.0</x>
+                    <y>0.0</y>
+                    <z>3.0</z>
+                    <w>0.0</w>
+                </row>
+            </ModelMat3x4>
+        </Instance>
+    </ObjectInstance>
+
+    <Light>
+        <Type>AreaLight</Type>
+        <ObjectRef>LightSource</ObjectRef>
+    </Light>
+
+    <Camera>
+        <Position>
+            <x>0.0</x>
+            <y>0.0</y>
+            <z>-5.0</z>
+        </Position>
+        <LookAt>
+            <x>0.0</x>
+            <y>0.0</y>
+            <z>0.0</z>
+        </LookAt>
+        <UpVec>
+            <x>0.0</x>
+            <y>1.0</y>
+            <z>0.0</z>
+        </UpVec>
+    </Camera>
+</Root>

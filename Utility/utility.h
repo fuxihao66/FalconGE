@@ -15,6 +15,7 @@
 #include "dxcapi.h"  
 #include "d3dx12.h"
 
+#define PI 3.1415926
 
 inline void DxTrace(const wchar_t* file, unsigned long line, HRESULT hr,
     const wchar_t* proc) {

@@ -1,7 +1,6 @@
 #pragma once
 #include "ShaderResourceBinding.h"
 
-// TODO: ��Ҫ����lib�⣻����dxc��Ҫ�����£�sdk�İ汾̫�ͣ�
 namespace Falcon {
     class ShaderObject {
     protected:
