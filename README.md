@@ -1,3 +1,7 @@
+重要记录：
+1. descriptorHeap srv和uav合并  因为一次只能绑定一个
+2. descriptorheap的numdescriptor现在没有设置  需要在创建的时候设置好
+
 
 问题
 1.  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE和 Non Pixel shader resource
